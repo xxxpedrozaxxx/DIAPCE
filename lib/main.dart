@@ -1,8 +1,16 @@
 // main.dart
+import 'package:diapce_aplicationn/core/database_helper.dart';
 import 'package:diapce_aplicationn/view/main_login.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+
+// Cambiar a una inicialización más segura
+DatabaseHelper get dbHelper => DatabaseHelper();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Inicializar la base de datos al inicio
+  await DatabaseHelper().database;
   runApp(const MainApp());
 }
 

@@ -1,11 +1,7 @@
-// view/hall.dart
-import 'dart:io';
-import 'package:diapce_aplicationn/main.dart'; // Para el botón Salir del Drawer
+import 'package:diapce_aplicationn/main.dart';
 import 'package:diapce_aplicationn/core/project_data.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
-
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -38,7 +34,7 @@ class _HallState extends State<Hall> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ViewExistingProjectScreen(project: project), // Pasa el objeto project completo
+        builder: (context) => ViewExistingProjectScreen(project: project, isNewProject: false,), // Pasa el objeto project completo
       ),
     );
   }

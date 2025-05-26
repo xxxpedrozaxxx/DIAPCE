@@ -1,7 +1,8 @@
-// lib/view/project_details_view.dart
+/* lib/view/project_details_view.dart
 
 import 'dart:io'; // Para File si se usa
 import 'package:diapce_aplicationn/core/project_data.dart'; // Importa tu modelo
+import 'package:diapce_aplicationn/core/database_helper.dart'; // Para crear la mezcla
 // import 'package:diapce_aplicationn/view/graph_view.dart'; // Ya no se necesita
 // import 'package:diapce_aplicationn/view/hall.dart'; // Para el botón Cerrar (No se usa directamente aquí si se usa popUntil)
 import 'package:flutter/material.dart';
@@ -159,8 +160,11 @@ class ProjectDetailsView extends StatelessWidget {
                     'Descargar',
                     const Color(0xFF3498DB), // Mismo color que tenía "Graficar"
                     () => _handleDownload(context), // Llama a la nueva función
-                  ),
-                  _buildButton('Guardar', const Color(0xFF27AE60), () {
+                  ),                  _buildButton('Guardar', const Color(0xFF27AE60), () async {
+                    // Crear una mezcla de ejemplo aleatoria cuando se guarda el proyecto
+                    final DatabaseHelper dbHelper = DatabaseHelper();
+                    final mixtureId = await dbHelper.createRandomExampleMixture(projectName);
+                    
                     final project = ProjectData(
                       projectName: projectName,
                       selectedDate: selectedDate,
@@ -170,9 +174,7 @@ class ProjectDetailsView extends StatelessWidget {
                       temperature: temperature,
                       humidity: humidity,
                       workType: workType,
-                      // Si estos nuevos campos de dosificación fueran parte de ProjectData,
-                      // los añadirías aquí al guardar.
-                      // Por ahora, son solo de ejemplo en la UI.
+                      mixtureId: mixtureId, // Asignar el ID de la mezcla creada aleatoriamente
                     );
                     Navigator.pop(context, project);
                   }),
@@ -256,3 +258,4 @@ class ProjectDetailsView extends StatelessWidget {
     );
   }
 }
+*/

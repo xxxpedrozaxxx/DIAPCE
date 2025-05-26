@@ -10,6 +10,7 @@ class ProjectData {
   final String? temperature;     // De Properties
   final String? humidity;        // De Properties
   final String? workType;        // De Properties
+  final int? mixtureId;          // ID de la mezcla asociada
 
   ProjectData({
     required this.projectName,
@@ -20,6 +21,7 @@ class ProjectData {
     this.temperature,
     this.humidity,
     this.workType,
+    this.mixtureId,
   });
 
   // Opcional: Un método 'copyWith' puede ser útil si necesitas modificar instancias
@@ -44,10 +46,9 @@ class ProjectData {
   //     workType: workType ?? this.workType,
   //   );
   // }
-
   // Opcional: Un método 'toString' para facilitar la depuración
   @override
   String toString() {
-    return 'ProjectData(projectName: $projectName, selectedDate: $selectedDate, creatorName: $creatorName, resistanceLevel: $resistanceLevel, temperature: $temperature, humidity: $humidity, workType: $workType, selectedImage: ${selectedImage?.path})';
+    return 'ProjectData(projectName: $projectName, selectedDate: $selectedDate, creatorName: $creatorName, resistanceLevel: $resistanceLevel, temperature: $temperature, humidity: $humidity, workType: $workType, selectedImage: ${selectedImage?.path}, mixtureId: $mixtureId)';
   }
 }

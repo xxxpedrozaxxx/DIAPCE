@@ -2,9 +2,7 @@
 
 import 'dart:io';
 import 'package:diapce_aplicationn/core/project_data.dart';
-
-import 'package:diapce_aplicationn/view/view__properties.dart';
-// import 'package:diapce_aplicationn/view/hall.dart'; // No se importa directamente para pop
+import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -92,26 +90,27 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       );
       return;
     }
-
-
-    // Navega a ProjectDetailsView y espera un resultado de tipo ProjectData
+    // Navega a ViewExistingProjectScreen con isNewProject=true y espera un resultado de tipo ProjectData
     final projectDataFromDetails = await Navigator.push<ProjectData>(
       context,
       MaterialPageRoute(
-        builder: (context) => ProjectDetailsView(
-          projectName: _projectNameController.text,
-          selectedDate: _selectedDate,
-          selectedImage: _selectedImage,
-          creatorName: _creatorNameController.text,
-          resistanceLevel: _resistanceController.text,
-          temperature: _temperatureController.text,
-          humidity: _humidityController.text,
-          workType: _selectedWorkType,
+        builder: (context) => ViewExistingProjectScreen(
+          project: ProjectData(
+            projectName: _projectNameController.text,
+            selectedDate: _selectedDate,
+            selectedImage: _selectedImage,
+            creatorName: _creatorNameController.text,
+            resistanceLevel: _resistanceController.text,
+            temperature: _temperatureController.text,
+            humidity: _humidityController.text,
+            workType: _selectedWorkType,
+          ),
+          isNewProject: true, // Indicamos que es un proyecto nuevo
         ),
       ),
     );
 
-    // Si ProjectDetailsView devolvió un ProjectData (porque se guardó),
+    // Si ViewExistingProjectScreen devolvió un ProjectData (porque se guardó),
     // entonces lo devolvemos a la pantalla anterior (Hall)
     if (projectDataFromDetails != null && mounted) {
       Navigator.pop(context, projectDataFromDetails);

@@ -11,8 +11,9 @@ dependencies:
     sdk: flutter
   image_picker: ^1.0.4   # <-- Aquí agregamos image_picker
   intl: ^0.20.2
-  #sqflite: ^2.2.0
-  #path: ^1.8.3
+  sqflite: ^2.2.0
+  path: ^1.8.3
+  fl_chart: ^0.68.0      # Para gráficas de pastel
 
 dev_dependencies:
   flutter_test:
