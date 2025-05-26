@@ -1,12 +1,13 @@
 // view/hall.dart
 import 'dart:io';
 import 'package:diapce_aplicationn/main.dart'; // Para el botón Salir del Drawer
-import 'package:diapce_aplicationn/core/project_data.dart'; // Asegúrate que la ruta sea correcta
+import 'package:diapce_aplicationn/core/project_data.dart';
+import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
+
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
 
-// import 'package:diapce_aplicationn/view/project_details_view.dart'; // Si quieres navegar a detalles
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Para formatear la fecha en la tarjeta del proyecto
+import 'package:intl/intl.dart';
 
 class Hall extends StatefulWidget {
   const Hall({super.key});
@@ -16,7 +17,7 @@ class Hall extends StatefulWidget {
 }
 
 class _HallState extends State<Hall> {
-  final List<ProjectData> _projects = [];
+  final List<ProjectData> _projects = []; // Eventualmente, esto se cargará desde la BD
 
   void _navigateToCreateProject() async {
     final newProject = await Navigator.push<ProjectData>(
@@ -27,28 +28,19 @@ class _HallState extends State<Hall> {
     if (newProject != null && mounted) {
       setState(() {
         _projects.add(newProject);
+        // Aquí también deberías guardar el newProject en la base de datos
       });
     }
   }
 
+  // MODIFICADO: Ahora navega a ViewExistingProjectScreen
   void _viewProjectDetails(ProjectData project) {
-    print("Viendo detalles del proyecto: ${project.projectName}");
-    // Implementa la navegación a ProjectDetailsView si es necesario
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => ProjectDetailsView(
-    //       projectName: project.projectName,
-    //       selectedDate: project.selectedDate,
-    //       selectedImage: project.selectedImage,
-    //       creatorName: project.creatorName,
-    //       resistanceLevel: project.resistanceLevel,
-    //       temperature: project.temperature,
-    //       humidity: project.humidity,
-    //       workType: project.workType,
-    //     ),
-    //   ),
-    // );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViewExistingProjectScreen(project: project), // Pasa el objeto project completo
+      ),
+    );
   }
 
   String _formatDateForCard(DateTime? date) {
@@ -57,7 +49,6 @@ class _HallState extends State<Hall> {
   }
 
   void _handleLinkAction() {
-    // TODO: Implementa aquí la lógica para el botón de "vincular" o la acción deseada
     print("Botón de Vincular/Acción presionado");
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Acción de vincular no implementada')),
@@ -157,7 +148,7 @@ class _HallState extends State<Hall> {
             const SizedBox(height: 10),
             Expanded(
               child: _projects.isEmpty
-                  ? const Center( // ***** MENSAJE RESTAURADO *****
+                  ? const Center(
                       child: Text(
                         'No hay proyectos creados.\nToca el botón "+" para añadir uno.',
                         textAlign: TextAlign.center,
@@ -175,8 +166,8 @@ class _HallState extends State<Hall> {
                       itemBuilder: (context, index) {
                         final project = _projects[index];
                         return GestureDetector(
-                          onTap: () => _viewProjectDetails(project),
-                          child: Container( // ***** CONTENIDO DE LA TARJETA RESTAURADO *****
+                          onTap: () => _viewProjectDetails(project), // Esto ahora llama a la función modificada
+                          child: Container(
                             decoration: BoxDecoration(
                               color: Colors.teal[100],
                               borderRadius: BorderRadius.circular(16),
