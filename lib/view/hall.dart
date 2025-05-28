@@ -1,7 +1,8 @@
-import 'package:diapce_aplicationn/main.dart';
-import 'package:diapce_aplicationn/core/project_data.dart';
+import 'package:diapce_aplicationn/main.dart'; 
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
+import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
+import 'package:diapce_aplicationn/services/project_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -13,8 +14,37 @@ class Hall extends StatefulWidget {
 }
 
 class _HallState extends State<Hall> {
-  final List<ProjectData> _projects = []; // Eventualmente, esto se cargará desde la BD
+  final ProjectService _projectService = ProjectService();
+  final List<ProjectData> _projects = [];
+  bool _isLoading = true;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final projects = await _projectService.getAllProjects();
+      if (mounted) {
+        setState(() {
+          _projects.clear();
+          _projects.addAll(projects);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error cargando proyectos: $e')),
+        );
+      }
+    }
+  }
   void _navigateToCreateProject() async {
     final newProject = await Navigator.push<ProjectData>(
       context,
@@ -24,7 +54,6 @@ class _HallState extends State<Hall> {
     if (newProject != null && mounted) {
       setState(() {
         _projects.add(newProject);
-        // Aquí también deberías guardar el newProject en la base de datos
       });
     }
   }
@@ -43,12 +72,75 @@ class _HallState extends State<Hall> {
     if (date == null) return 'Sin fecha';
     return DateFormat('dd/MM/yy').format(date);
   }
-
   void _handleLinkAction() {
     print("Botón de Vincular/Acción presionado");
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Acción de vincular no implementada')),
     );
+  }
+
+  Future<void> _deleteProject(ProjectData project) async {
+    // Mostrar diálogo de confirmación
+    final bool? shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Eliminar Proyecto'),
+          content: Text(
+            '¿Estás seguro de que quieres eliminar el proyecto "${project.projectName}"?\n\nEsta acción no se puede deshacer.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Si el usuario confirmó la eliminación
+    if (shouldDelete == true && project.id != null) {
+      try {
+        final success = await _projectService.deleteProject(project.id!);
+        
+        if (success && mounted) {
+          setState(() {
+            _projects.removeWhere((p) => p.id == project.id);
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Proyecto "${project.projectName}" eliminado exitosamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error al eliminar el proyecto'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -141,17 +233,18 @@ class _HallState extends State<Hall> {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2C3E50)),
             ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: _projects.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No hay proyectos creados.\nToca el botón "+" para añadir uno.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D)),
-                      ),
-                    )
-                  : GridView.builder(
+            const SizedBox(height: 10),            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _projects.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No hay proyectos creados.\nToca el botón "+" para añadir uno.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D)),
+                          ),
+                        )
+                      : GridView.builder(
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         crossAxisSpacing: 12.0,
@@ -160,9 +253,9 @@ class _HallState extends State<Hall> {
                       ),
                       itemCount: _projects.length,
                       itemBuilder: (context, index) {
-                        final project = _projects[index];
-                        return GestureDetector(
-                          onTap: () => _viewProjectDetails(project), // Esto ahora llama a la función modificada
+                        final project = _projects[index];                        return GestureDetector(
+                          onTap: () => _viewProjectDetails(project),
+                          onLongPress: () => _deleteProject(project), // Añadir long press para eliminar
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.teal[100],

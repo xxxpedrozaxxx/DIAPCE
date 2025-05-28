@@ -1,7 +1,7 @@
 // lib/view/create_project_screen.dart
 
 import 'dart:io';
-import 'package:diapce_aplicationn/core/project_data.dart';
+import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

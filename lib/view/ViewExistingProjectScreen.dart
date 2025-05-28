@@ -1,8 +1,8 @@
 // lib/view/view_existing_project_screen.dart
-
-import 'package:diapce_aplicationn/core/project_data.dart'; // Importa tu modelo
+import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/core/database_helper.dart';
 import 'package:diapce_aplicationn/services/mixture_service.dart';
+import 'package:diapce_aplicationn/services/project_service.dart';
 import 'package:diapce_aplicationn/models/mixture.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -24,20 +24,22 @@ class ViewExistingProjectScreen extends StatefulWidget {
 
 class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
   final MixtureService _mixtureService = MixtureService();
+  final ProjectService _projectService = ProjectService();
   List<MaterialInMixture> _materials = [];
   bool _isLoading = true;
+  late ProjectData _currentProject; // Track the current project state
 
   @override
   void initState() {
     super.initState();
+    _currentProject = widget.project; // Initialize with the widget project
     _loadMixtureData();
   }
-
   Future<void> _loadMixtureData() async {
-    if (widget.project.mixtureId != null) {
+    if (_currentProject.mixtureId != null) {
       try {
         final mixture = await _mixtureService.getMixtureWithMaterials(
-          widget.project.mixtureId!,
+          _currentProject.mixtureId!,
         );
         if (mixture != null && mounted) {
           setState(() {
@@ -51,16 +53,24 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
             _isLoading = false;
           });
         }
-      }    } else {
+      }
+    } else {
       // Crear una instancia local de DatabaseHelper
       final dbHelper = DatabaseHelper();
       final mixtureId = await dbHelper.createRandomExampleMixture(
-        widget.project.projectName,
+        _currentProject.projectName,
       );
-      
+
+      // Actualizar el proyecto actual con el nuevo mixtureId
+      setState(() {
+        _currentProject = _currentProject.copyWith(mixtureId: mixtureId);
+      });
+
       // Cargar los materiales de la mezcla recién creada
       try {
-        final mixture = await _mixtureService.getMixtureWithMaterials(mixtureId);
+        final mixture = await _mixtureService.getMixtureWithMaterials(
+          mixtureId,
+        );
         if (mixture != null && mounted) {
           setState(() {
             _materials = mixture.materials ?? [];
@@ -571,27 +581,50 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
               ),
               const SizedBox(height: 30),
 
-                Center(
+              Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                  _buildButton('Descargar', Colors.blue, () {
-                    // Acción de descarga aquí
-                  }),
-                  const SizedBox(width: 16),
-                  if (widget.isNewProject == true)
-                    _buildButton('Guardar', Colors.green, () {
-                      // Acción de guardar aquí
-                      // Por ejemplo, guardar el proyecto en la base de datos
-                      //DatabaseHelper().insertMaterial(mate);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Proyecto guardado')),
-                      );
+                    _buildButton('Descargar', Colors.blue, () {
+                      // Acción de descarga aquí
                     }),
-                  
+                    const SizedBox(width: 16),                    if (widget.isNewProject == true)
+                      _buildButton('Guardar', Colors.green, () async {
+                        try {
+                          // Guardar el proyecto con su mezcla en la base de datos
+                          final savedProject = await _projectService.saveCompleteProject(_currentProject);
+                          
+                          if (savedProject != null && mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Proyecto guardado exitosamente')),
+                            );
+                            
+                            // Retornar el proyecto guardado a la pantalla anterior
+                            Navigator.pop(context, savedProject);
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Error al guardar el proyecto'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }),
                   ],
                 ),
-                ),
+              ),
               const SizedBox(height: 20),
             ],
           ),

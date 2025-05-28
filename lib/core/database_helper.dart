@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -53,6 +53,24 @@ class DatabaseHelper {
       )
     ''');
 
+    // Tabla de proyectos
+    await db.execute('''
+      CREATE TABLE projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_name TEXT NOT NULL,
+        selected_date TEXT,
+        selected_image_path TEXT,
+        creator_name TEXT,
+        resistance_level TEXT,
+        temperature TEXT,
+        humidity TEXT,
+        work_type TEXT,
+        mixture_id INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (mixture_id) REFERENCES mixtures (id) ON DELETE SET NULL
+      )
+    ''');
+
     // Tabla de mezclas
     await db.execute('''
       CREATE TABLE mixtures (
@@ -61,7 +79,8 @@ class DatabaseHelper {
         description TEXT,
         total_volume REAL,
         project_id INTEGER,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE SET NULL
       )
     ''');
 
@@ -98,6 +117,24 @@ class DatabaseHelper {
         )
       ''');
 
+      // Crear tabla de proyectos
+      await db.execute('''
+        CREATE TABLE projects (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_name TEXT NOT NULL,
+          selected_date TEXT,
+          selected_image_path TEXT,
+          creator_name TEXT,
+          resistance_level TEXT,
+          temperature TEXT,
+          humidity TEXT,
+          work_type TEXT,
+          mixture_id INTEGER,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (mixture_id) REFERENCES mixtures (id) ON DELETE SET NULL
+        )
+      ''');
+
       await db.execute('''
         CREATE TABLE mixtures (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,7 +142,8 @@ class DatabaseHelper {
           description TEXT,
           total_volume REAL,
           project_id INTEGER,
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE SET NULL
         )
       ''');
 
@@ -123,6 +161,26 @@ class DatabaseHelper {
       ''');
 
       await _insertDefaultMaterials(db);
+    }
+
+    if (oldVersion < 3) {
+      // Crear la tabla de proyectos
+      await db.execute('''
+        CREATE TABLE projects (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_name TEXT NOT NULL,
+          selected_date TEXT,
+          selected_image_path TEXT,
+          creator_name TEXT,
+          resistance_level TEXT,
+          temperature TEXT,
+          humidity TEXT,
+          work_type TEXT,
+          mixture_id INTEGER,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (mixture_id) REFERENCES mixtures (id) ON DELETE SET NULL
+        )
+      ''');
     }
   }
 
@@ -206,6 +264,33 @@ class DatabaseHelper {
   Future<int> deleteMaterial(int id) async {
     final db = await database;
     return await db.delete('materials', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // === MÉTODOS PARA PROYECTOS ===
+  Future<int> insertProject(Map<String, dynamic> project) async {
+    final db = await database;
+    return await db.insert('projects', project);
+  }
+
+  Future<List<Map<String, dynamic>>> getProjects() async {
+    final db = await database;
+    return await db.query('projects', orderBy: 'created_at DESC');
+  }
+
+  Future<Map<String, dynamic>?> getProjectById(int id) async {
+    final db = await database;
+    final results = await db.query('projects', where: 'id = ?', whereArgs: [id]);
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<int> updateProject(int id, Map<String, dynamic> project) async {
+    final db = await database;
+    return await db.update('projects', project, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteProject(int id) async {
+    final db = await database;
+    return await db.delete('projects', where: 'id = ?', whereArgs: [id]);
   }
 
   // === MÉTODOS PARA MEZCLAS ===
