@@ -1,4 +1,4 @@
-import 'package:diapce_aplicationn/main.dart'; 
+import 'package:diapce_aplicationn/main.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
@@ -6,8 +6,10 @@ import 'package:diapce_aplicationn/services/project_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+
 class Hall extends StatefulWidget {
-  const Hall({super.key});
+  final Map<String, dynamic> user;
+  const Hall({super.key, required this.user});
 
   @override
   State<Hall> createState() => _HallState();
@@ -18,15 +20,19 @@ class _HallState extends State<Hall> {
   final List<ProjectData> _projects = [];
   bool _isLoading = true;
 
+
+  late int _userId;
+
   @override
   void initState() {
     super.initState();
+    _userId = widget.user['id'];
     _loadProjects();
   }
 
   Future<void> _loadProjects() async {
     try {
-      final projects = await _projectService.getAllProjects();
+      final projects = await _projectService.getAllProjects(userId: _userId);
       if (mounted) {
         setState(() {
           _projects.clear();
@@ -48,7 +54,7 @@ class _HallState extends State<Hall> {
   void _navigateToCreateProject() async {
     final newProject = await Navigator.push<ProjectData>(
       context,
-      MaterialPageRoute(builder: (context) => const CreateProjectScreen()),
+      MaterialPageRoute(builder: (context) => CreateProjectScreen(userId: _userId)),
     );
 
     if (newProject != null && mounted) {
@@ -80,7 +86,7 @@ class _HallState extends State<Hall> {
   }
 
   Future<void> _deleteProject(ProjectData project) async {
-    // Mostrar diálogo de confirmación
+    // Mostrar diálogo de confirmaciónha
     final bool? shouldDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -204,28 +210,6 @@ class _HallState extends State<Hall> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: _navigateToCreateProject,
-              child: Container(
-                width: 60,
-                height: 60,
-                margin: const EdgeInsets.only(bottom: 16.0),
-                decoration: BoxDecoration(
-                  color: Colors.orange[100],
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.blueGrey, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
-                ),
-                child: const Icon(Icons.add, size: 36, color: Colors.blueGrey),
-              ),
-            ),
             const Text(
               "Mis Proyectos",
               style: TextStyle(
@@ -233,95 +217,132 @@ class _HallState extends State<Hall> {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2C3E50)),
             ),
-            const SizedBox(height: 10),            Expanded(
+            const SizedBox(height: 10),
+            Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _projects.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No hay proyectos creados.\nToca el botón "+" para añadir uno.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D)),
-                          ),
-                        )
-                      : GridView.builder(
+                  : GridView.builder(
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 12.0,
-                        mainAxisSpacing: 12.0,
-                        childAspectRatio: 1.0,
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16.0,
+                        mainAxisSpacing: 16.0,
+                        childAspectRatio: 0.75,
                       ),
-                      itemCount: _projects.length,
+                      itemCount: _projects.length + 1,
                       itemBuilder: (context, index) {
-                        final project = _projects[index];                        return GestureDetector(
+                        if (index == 0) {
+                          // Tarjeta especial para crear nueva (borde hundido)
+                          return GestureDetector(
+                            onTap: _navigateToCreateProject,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: Colors.blueGrey.shade200, width: 2),
+                                boxShadow: [
+                                  // Borde hundido
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.8),
+                                    offset: const Offset(-2, -2),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.blueGrey.shade100,
+                                    offset: const Offset(2, 2),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(Icons.add, size: 48, color: Colors.blueGrey),
+                                  SizedBox(height: 12),
+                                  Text('Crear nueva', style: TextStyle(fontSize: 18, color: Colors.blueGrey)),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+                        final project = _projects[index - 1];
+                        // Color azul claro igual a la primera tarjeta
+                        return GestureDetector(
                           onTap: () => _viewProjectDetails(project),
-                          onLongPress: () => _deleteProject(project), // Añadir long press para eliminar
+                          onLongPress: () => _deleteProject(project),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.teal[100],
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.teal, width: 2),
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.blueGrey.shade200, width: 2),
                               boxShadow: [
+                                // Borde elevado
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.2),
+                                  color: Colors.blueGrey.shade100,
+                                  offset: const Offset(-2, -2),
+                                  blurRadius: 4,
                                   spreadRadius: 1,
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                )
+                                ),
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.8),
+                                  offset: const Offset(2, 2),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
                               ],
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                            child: Stack(
                               children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4.0),
+                                // Número grande en la esquina superior izquierda
+                                Positioned(
+                                  top: 16,
+                                  left: 16,
+                                  child: Text(
+                                    (index).toString().padLeft(2, '0'),
+                                    style: const TextStyle(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
+                                ),
+                                // Imagen principal (más abajo y más grande)
+                                Positioned(
+                                  top: 60,
+                                  left: 24,
+                                  right: 24,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
                                     child: project.selectedImage != null
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(12.0),
-                                            child: Image.file(
-                                              project.selectedImage!,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                            ),
+                                        ? Image.file(
+                                            project.selectedImage!,
+                                            height: 110,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
                                           )
                                         : Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[300],
-                                              borderRadius: BorderRadius.circular(12.0),
-                                            ),
-                                            child: const Icon(Icons.image_not_supported, size: 30, color: Colors.grey),
+                                            height: 110,
+                                            color: Colors.white,
+                                            child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
                                           ),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 2,
+                                // Nombre del proyecto
+                                Align(
+                                  alignment: Alignment.bottomCenter,
                                   child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          project.projectName,
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 2,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: Color(0xFF2C3E50),
-                                          ),
-                                        ),
-                                        if (project.selectedDate != null) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            _formatDateForCard(project.selectedDate),
-                                            style: TextStyle(fontSize: 10, color: Colors.grey[700]),
-                                          ),
-                                        ]
-                                      ],
+                                    padding: const EdgeInsets.only(bottom: 24, left: 12, right: 12),
+                                    child: Text(
+                                      project.projectName,
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: Colors.blueGrey,
+                                      ),
                                     ),
                                   ),
                                 ),

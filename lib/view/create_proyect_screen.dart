@@ -8,7 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 class CreateProjectScreen extends StatefulWidget {
-  const CreateProjectScreen({super.key});
+  final int userId;
+  const CreateProjectScreen({super.key, required this.userId});
 
   @override
   State<CreateProjectScreen> createState() => _CreateProjectScreenState();
@@ -96,6 +97,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       MaterialPageRoute(
         builder: (context) => ViewExistingProjectScreen(
           project: ProjectData(
+            userId: widget.userId,
             projectName: _projectNameController.text,
             selectedDate: _selectedDate,
             selectedImage: _selectedImage,

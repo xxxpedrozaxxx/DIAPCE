@@ -12,8 +12,8 @@ class ProjectService {
   }
 
   // Obtener todos los proyectos
-  Future<List<ProjectData>> getAllProjects() async {
-    final maps = await _db.getProjects();
+  Future<List<ProjectData>> getAllProjects({int? userId}) async {
+    final maps = await _db.getProjects(userId: userId);
     return maps.map((map) => ProjectData.fromMap(map)).toList();
   }
 

@@ -3,6 +3,7 @@ import 'dart:io'; // Necesario para 'File'
 
 class ProjectData {
   final int? id; // ID de la base de datos
+  final int? userId; // ID del usuario dueño del proyecto
   final String projectName;
   final DateTime? selectedDate;
   final File? selectedImage; // Para la imagen seleccionada
@@ -15,6 +16,7 @@ class ProjectData {
 
   ProjectData({
     this.id,
+    this.userId,
     required this.projectName,
     this.selectedDate,
     this.selectedImage,
@@ -30,6 +32,7 @@ class ProjectData {
   factory ProjectData.fromMap(Map<String, dynamic> map) {
     return ProjectData(
       id: map['id'],
+      userId: map['user_id'],
       projectName: map['project_name'],
       selectedDate: map['selected_date'] != null 
           ? DateTime.parse(map['selected_date']) 
@@ -50,6 +53,7 @@ class ProjectData {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'project_name': projectName,
       'selected_date': selectedDate?.toIso8601String(),
       'selected_image_path': selectedImage?.path,
@@ -65,6 +69,7 @@ class ProjectData {
   // Método copyWith para crear copias con campos modificados
   ProjectData copyWith({
     int? id,
+    int? userId,
     String? projectName,
     DateTime? selectedDate,
     File? selectedImage,
@@ -77,6 +82,7 @@ class ProjectData {
   }) {
     return ProjectData(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       projectName: projectName ?? this.projectName,
       selectedDate: selectedDate ?? this.selectedDate,
       selectedImage: selectedImage ?? this.selectedImage,
@@ -92,6 +98,6 @@ class ProjectData {
   // Opcional: Un método 'toString' para facilitar la depuración
   @override
   String toString() {
-    return 'ProjectData(id: $id, projectName: $projectName, selectedDate: $selectedDate, creatorName: $creatorName, resistanceLevel: $resistanceLevel, temperature: $temperature, humidity: $humidity, workType: $workType, selectedImage: ${selectedImage?.path}, mixtureId: $mixtureId)';
+    return 'ProjectData(id: $id, userId: $userId, projectName: $projectName, selectedDate: $selectedDate, creatorName: $creatorName, resistanceLevel: $resistanceLevel, temperature: $temperature, humidity: $humidity, workType: $workType, selectedImage: [${selectedImage?.path}, mixtureId: $mixtureId)';
   }
 }

@@ -33,12 +33,12 @@ class DatabaseHelper {
   Future<void> _onCreate(Database db, int version) async {
     // Tabla de usuarios (existente)
     await db.execute('''
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        age INTEGER NOT NULL
-      )
-    ''');
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL
+  )
+''');
 
     // Tabla de materiales
     await db.execute('''
@@ -53,10 +53,11 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tabla de proyectos
+    // Tabla de proyectos (ahora con user_id)
     await db.execute('''
       CREATE TABLE projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         project_name TEXT NOT NULL,
         selected_date TEXT,
         selected_image_path TEXT,
@@ -67,6 +68,7 @@ class DatabaseHelper {
         work_type TEXT,
         mixture_id INTEGER,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
         FOREIGN KEY (mixture_id) REFERENCES mixtures (id) ON DELETE SET NULL
       )
     ''');
@@ -234,9 +236,14 @@ class DatabaseHelper {
     return await db.insert('users', user);
   }
 
-  Future<List<Map<String, dynamic>>> getUsers() async {
+  Future<Map<String, dynamic>?> getUserByEmailAndPassword(String email, String password) async {
     final db = await database;
-    return await db.query('users');
+    final result = await db.query(
+      'users',
+      where: 'email = ? AND password = ?',
+      whereArgs: [email, password],
+    );
+    return result.isNotEmpty ? result.first : null;
   }
 
   // === MÉTODOS PARA MATERIALES ===
@@ -272,9 +279,13 @@ class DatabaseHelper {
     return await db.insert('projects', project);
   }
 
-  Future<List<Map<String, dynamic>>> getProjects() async {
+  Future<List<Map<String, dynamic>>> getProjects({int? userId}) async {
     final db = await database;
-    return await db.query('projects', orderBy: 'created_at DESC');
+    if (userId != null) {
+      return await db.query('projects', where: 'user_id = ?', whereArgs: [userId], orderBy: 'created_at DESC');
+    } else {
+      return await db.query('projects', orderBy: 'created_at DESC');
+    }
   }
 
   Future<Map<String, dynamic>?> getProjectById(int id) async {

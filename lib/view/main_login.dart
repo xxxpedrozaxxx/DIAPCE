@@ -1,7 +1,8 @@
 // view/main_login.dart
-import 'package:diapce_aplicationn/view/Create_count.dart'; // Asegúrate de que Create() tenga su Scaffold
-import 'package:diapce_aplicationn/view/hall.dart';         // Asegúrate de que Hall() tenga su Scaffold
+import 'package:diapce_aplicationn/view/Create_count.dart';
+import 'package:diapce_aplicationn/view/hall.dart';
 import 'package:flutter/material.dart';
+import 'package:diapce_aplicationn/core/database_helper.dart';
 
 class MainLogin extends StatefulWidget {
   const MainLogin({super.key});
@@ -23,15 +24,22 @@ class _MainLoginState extends State<MainLogin> {
     super.dispose();
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
       final email = _emailController.text;
       final password = _passwordController.text;
-      print('Email: $email, Password: $password');
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => Hall()),
-      );
+      final dbHelper = DatabaseHelper();
+      final user = await dbHelper.getUserByEmailAndPassword(email, password);
+      if (user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => Hall(user: user)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Correo o contraseña incorrectos')),
+        );
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'hall.dart'; // Importa el archivo donde se encuentra la clase Hall
+import 'hall.dart';
+import 'package:diapce_aplicationn/core/database_helper.dart';
 
 class Create extends StatefulWidget {
   const Create({super.key});
@@ -10,7 +11,6 @@ class Create extends StatefulWidget {
 
 class _CreateState extends State<Create> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -19,25 +19,39 @@ class _CreateState extends State<Create> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final name = _nameController.text;
       final email = _emailController.text;
       final password = _passwordController.text;
-      print('Nombre: $name, Email: $email, Contraseña: $password');
-      // Aquí iría la lógica para crear la cuenta del usuario.
-      // Después de crear la cuenta, navega a la pantalla Hall
-      Navigator.pushReplacement( // Usa pushReplacement para que el usuario no pueda volver atrás con el botón "Atrás"
-        context,
-        MaterialPageRoute(builder: (context) => const Hall()),
-      );
+      final dbHelper = DatabaseHelper();
+      try {
+        // Verificar si el usuario ya existe
+        final existingUser = await dbHelper.getUserByEmailAndPassword(email, password);
+        if (existingUser != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('El usuario ya existe. Usa otro correo.')),
+          );
+          return;
+        }
+        await dbHelper.insertUser({
+          'email': email,
+          'password': password,
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario registrado correctamente. Inicia sesión.')),
+        );
+        Navigator.pop(context); // Regresa a la pantalla de login
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al registrar usuario: $e')),
+        );
+      }
     }
   }
 
@@ -56,22 +70,6 @@ class _CreateState extends State<Create> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 32),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: "Nombre Completo",
-                    hintText: "Ingresa tu nombre completo",
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu nombre';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
