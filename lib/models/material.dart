@@ -17,7 +17,7 @@ class Material {
     this.costPerUnit,
     this.description,
     this.createdAt,
-  });
+  }); 
 
   factory Material.fromMap(Map<String, dynamic> map) {
     return Material(

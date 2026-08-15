@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
+import 'package:diapce_aplicationn/core/database_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,18 +20,74 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   // Controladores de Date
   final TextEditingController _projectNameController = TextEditingController();
   final TextEditingController _creatorNameController = TextEditingController();
+  final TextEditingController _resistanceController = TextEditingController();
   DateTime? _selectedDate;
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
-  // Controladores de Properties
-  final TextEditingController _resistanceController = TextEditingController();
-  final TextEditingController _temperatureController = TextEditingController();
-  final TextEditingController _humidityController = TextEditingController();
+  // Variables para el árbol de decisión
+  double? _selectedResistanceTarget;
+  int? _selectedTemperature;
+  int? _selectedHumidity;
+  double? _selectedRelacionAc;
+  int? _selectedAditivoId;
   String? _selectedWorkType;
+
+  // Opciones disponibles para los dropdowns
+  List<int> _availableTemperatures = [10, 25, 32];
+  List<int> _availableHumidities = [];
+  List<double> _availableRelacionesAc = [];
+  List<Map<String, dynamic>> _availableAditivos = [];
 
   // GlobalKey para el Form
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    // Cargar las opciones iniciales si es necesario
+    // Por ahora las temperaturas están hardcodeadas
+  }
+
+  // Método para cargar opciones de humedad cuando se selecciona temperatura
+  Future<void> _loadHumidityOptions(int temperatura) async {
+    final db = DatabaseHelper();
+    final humedades = await db.getOpcionesHumedad(temperatura);
+    setState(() {
+      _availableHumidities = humedades;
+      _selectedHumidity = null;
+      _availableRelacionesAc = [];
+      _selectedRelacionAc = null;
+      _availableAditivos = [];
+      _selectedAditivoId = null;
+    });
+  }
+
+  // Método para cargar opciones de relación a/c cuando se selecciona humedad
+  Future<void> _loadRelacionAcOptions(int temperatura, int humedad) async {
+    final db = DatabaseHelper();
+    final relacionesAc = await db.getOpcionesRelacionAC(temperatura, humedad);
+    setState(() {
+      _availableRelacionesAc = relacionesAc;
+      _selectedRelacionAc = null;
+      _availableAditivos = [];
+      _selectedAditivoId = null;
+    });
+  }
+
+  // Método para cargar opciones de aditivos cuando se selecciona relación a/c
+  Future<void> _loadAditivoOptions(int temperatura, int humedad, double relacionAc) async {
+    final db = DatabaseHelper();
+    final aditivos = await db.getAditivosConCodigos(temperatura, humedad, relacionAc);
+    setState(() {
+      _availableAditivos = aditivos;
+      _selectedAditivoId = null;
+    });
+  }
 
 
   @override
@@ -38,8 +95,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     _projectNameController.dispose();
     _creatorNameController.dispose();
     _resistanceController.dispose();
-    _temperatureController.dispose();
-    _humidityController.dispose();
     super.dispose();
   }
 
@@ -81,17 +136,32 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
   void _submitAndNavigateToDetails() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      // Si el formulario no es válido, no hacer nada más.
-      // Los mensajes de error de los validadores se mostrarán.
       return;
     }
-    if (_projectNameController.text.isEmpty) { // Doble chequeo, aunque el validator debería cubrirlo
+    if (_projectNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, ingresa el nombre del proyecto.')),
       );
       return;
     }
-    // Navega a ViewExistingProjectScreen con isNewProject=true y espera un resultado de tipo ProjectData
+    if (_selectedResistanceTarget == null || _selectedTemperature == null || 
+        _selectedHumidity == null || _selectedRelacionAc == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, completa todas las condiciones técnicas.')),
+      );
+      return;
+    }
+
+    // Calcular resistencias predichas basadas en los datos experimentales
+    final db = DatabaseHelper();
+    final resistencias = await db.getResistenciaPromedio(
+      temperatura: _selectedTemperature!,
+      humedad: _selectedHumidity!,
+      relacionAc: _selectedRelacionAc!,
+      aditivoId: _selectedAditivoId ?? 1, // Si no se seleccionó aditivo, usar el primero
+    );
+
+    // Navega a ViewExistingProjectScreen con isNewProject=true
     final projectDataFromDetails = await Navigator.push<ProjectData>(
       context,
       MaterialPageRoute(
@@ -102,18 +172,21 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
             selectedDate: _selectedDate,
             selectedImage: _selectedImage,
             creatorName: _creatorNameController.text,
-            resistanceLevel: _resistanceController.text,
-            temperature: _temperatureController.text,
-            humidity: _humidityController.text,
             workType: _selectedWorkType,
+            resistanceTarget: _selectedResistanceTarget!,
+            temperature: _selectedTemperature!,
+            humidity: _selectedHumidity!,
+            relacionAc: _selectedRelacionAc!,
+            aditivoId: _selectedAditivoId,
+            resistenciaPredicha7d: resistencias['dias_7'],
+            resistenciaPredicha14d: resistencias['dias_14'],
+            resistenciaPredicha28d: resistencias['dias_28'],
           ),
-          isNewProject: true, // Indicamos que es un proyecto nuevo
+          isNewProject: true,
         ),
       ),
     );
 
-    // Si ViewExistingProjectScreen devolvió un ProjectData (porque se guardó),
-    // entonces lo devolvemos a la pantalla anterior (Hall)
     if (projectDataFromDetails != null && mounted) {
       Navigator.pop(context, projectDataFromDetails);
     }
@@ -210,26 +283,85 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _resistanceController,
-                  decoration: _inputDecoration(labelText: 'Nivel de resistencia (MPa.)'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                  validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+                  decoration: _inputDecoration(labelText: 'Resistencia objetivo (MPa) - Rango: 24-57'),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}\.?\d{0,2}')),
+                  ],
+                  onChanged: (value) {
+                    final double? parsed = double.tryParse(value);
+                    setState(() => _selectedResistanceTarget = parsed);
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Campo requerido';
+                    final double? resistance = double.tryParse(value);
+                    if (resistance == null) return 'Ingrese un número válido';
+                    if (resistance < 24 || resistance > 57) return 'Debe estar entre 24 y 57 MPa';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _temperatureController,
-                  decoration: _inputDecoration(labelText: 'Condiciones de temperatura (°C.)'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                  validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+                DropdownButtonFormField<int>(
+                  decoration: _inputDecoration(labelText: 'Temperatura (°C)'),
+                  value: _selectedTemperature,
+                  items: _availableTemperatures.map((temp) {
+                    String label;
+                    if (temp == 10) label = 'Baja (10°C)';
+                    else if (temp == 25) label = 'Ambiente (25°C)';
+                    else label = 'Alta (32°C)';
+                    return DropdownMenuItem(value: temp, child: Text(label));
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedTemperature = value);
+                      _loadHumidityOptions(value);
+                    }
+                  },
+                  validator: (value) => value == null ? 'Campo requerido' : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _humidityController,
-                  decoration: _inputDecoration(labelText: 'Condición de humedad (%)'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                  validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+                DropdownButtonFormField<int>(
+                  decoration: _inputDecoration(labelText: 'Humedad relativa (%)'),
+                  value: _selectedHumidity,
+                  items: _availableHumidities.map((hum) {
+                    return DropdownMenuItem(value: hum, child: Text('$hum%'));
+                  }).toList(),
+                  onChanged: _selectedTemperature == null ? null : (value) {
+                    if (value != null) {
+                      setState(() => _selectedHumidity = value);
+                      _loadRelacionAcOptions(_selectedTemperature!, value);
+                    }
+                  },
+                  validator: (value) => value == null ? 'Campo requerido' : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<double>(
+                  decoration: _inputDecoration(labelText: 'Relación agua/cemento'),
+                  value: _selectedRelacionAc,
+                  items: _availableRelacionesAc.map((relacion) {
+                    return DropdownMenuItem(value: relacion, child: Text(relacion.toStringAsFixed(2)));
+                  }).toList(),
+                  onChanged: (_selectedTemperature == null || _selectedHumidity == null) ? null : (value) {
+                    if (value != null) {
+                      setState(() => _selectedRelacionAc = value);
+                      _loadAditivoOptions(_selectedTemperature!, _selectedHumidity!, value);
+                    }
+                  },
+                  validator: (value) => value == null ? 'Campo requerido' : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  decoration: _inputDecoration(labelText: 'Aditivo (opcional)'),
+                  value: _selectedAditivoId,
+                  items: _availableAditivos.map((aditivo) {
+                    return DropdownMenuItem(
+                      value: aditivo['id'] as int,
+                      child: Text(aditivo['codigo'] as String),
+                    );
+                  }).toList(),
+                  onChanged: (_selectedTemperature == null || _selectedHumidity == null || _selectedRelacionAc == null) 
+                    ? null 
+                    : (value) => setState(() => _selectedAditivoId = value),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(

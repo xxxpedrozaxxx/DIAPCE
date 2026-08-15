@@ -128,9 +128,8 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
 
   // Crear datos para la gráfica de resistencia vs tiempo (28 días)
   List<FlSpot> _createResistanceData() {
-    // Obtener el valor de resistencia del proyecto o usar un valor por defecto
-    final targetResistance =
-        double.tryParse(widget.project.resistanceLevel ?? '25') ?? 25.0;
+    // Obtener el valor de resistencia del proyecto
+    final targetResistance = widget.project.resistanceTarget.toDouble();
 
     // Datos típicos de desarrollo de resistencia del concreto
     // Porcentajes aproximados de la resistencia final a diferentes días
@@ -273,16 +272,20 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                 widget.project.creatorName ?? 'No especificado',
               ),
               _buildDetailRow(
-                'Resistencia (MPa):',
-                widget.project.resistanceLevel ?? 'No especificado',
+                'Resistencia objetivo (MPa):',
+                '${widget.project.resistanceTarget}',
               ),
               _buildDetailRow(
                 'Temperatura (°C):',
-                widget.project.temperature ?? 'No especificado',
+                '${widget.project.temperature}',
               ),
               _buildDetailRow(
                 'Humedad (%):',
-                widget.project.humidity ?? 'No especificado',
+                '${widget.project.humidity}',
+              ),
+              _buildDetailRow(
+                'Relación a/c:',
+                widget.project.relacionAc.toStringAsFixed(2),
               ),
               _buildDetailRow(
                 'Tipo de Obra:',
@@ -496,12 +499,7 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                     minX: 0,
                     maxX: 28,
                     minY: 0,
-                    maxY:
-                        (double.tryParse(
-                              widget.project.resistanceLevel ?? '25',
-                            ) ??
-                            25.0) *
-                        1.1,
+                    maxY: widget.project.resistanceTarget.toDouble() * 1.1,
                     lineBarsData: [
                       LineChartBarData(
                         spots: _createResistanceData(),
@@ -570,7 +568,7 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF34495E)),
                     ),
                     Text(
-                      '• Resistencia objetivo: ${widget.project.resistanceLevel ?? '25'} MPa a los 28 días',
+                      '• Resistencia objetivo: ${widget.project.resistanceTarget} MPa a los 28 días',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF34495E),

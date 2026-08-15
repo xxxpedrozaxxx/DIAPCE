@@ -1,0 +1,95 @@
+\documentclass[landscape,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{pgfgantt}
+\usepackage[margin=1cm]{geometry}
+
+\begin{document}
+
+\begin{center}
+\Large\textbf{Cronograma del Proyecto DIAPCE}\\[0.5cm]
+\large Diseño Asistido de Mezclas de Concreto basado en Datos Experimentales
+\end{center}
+
+\vspace{1cm}
+
+\begin{ganttchart}[
+    hgrid,
+    vgrid={*6{draw=none}, dotted},
+    x unit=0.8cm,
+    y unit title=0.6cm,
+    y unit chart=0.5cm,
+    time slot format=isodate,
+    title/.append style={fill=gray!30},
+    title height=1,
+    bar/.append style={fill=blue!50},
+    bar height=0.6,
+    group/.append style={fill=orange!30},
+    milestone/.append style={fill=red!50},
+    link/.style={-latex, line width=1.5pt, red}
+]{2025-01-01}{2025-11-30}
+    
+    % Títulos de tiempo
+    \gantttitlecalendar{year, month=name} \\
+    
+    % Fase 1: Planificación y Diseño
+    \ganttgroup{Fase 1: Planificación y Diseño}{2025-01-01}{2025-02-15} \\
+    \ganttbar{Definición de requisitos}{2025-01-01}{2025-01-20} \\
+    \ganttbar{Diseño de arquitectura}{2025-01-15}{2025-02-05} \\
+    \ganttbar{Diseño de base de datos}{2025-02-01}{2025-02-15} \\
+    \ganttmilestone{Aprobación diseño}{2025-02-15} \\
+    
+    % Fase 2: Implementación Base de Datos
+    \ganttgroup{Fase 2: Base de Datos}{2025-02-16}{2025-04-15} \\
+    \ganttbar{Creación esquema inicial (v1-v2)}{2025-02-16}{2025-03-10} \\
+    \ganttbar{Migración v3 (tablas experimentales)}{2025-03-11}{2025-03-25} \\
+    \ganttbar{Migración v4 (campos numéricos)}{2025-03-26}{2025-04-05} \\
+    \ganttbar{Carga dataset CSV (1874 registros)}{2025-04-01}{2025-04-10} \\
+    \ganttbar{Creación índices y optimización}{2025-04-06}{2025-04-15} \\
+    \ganttmilestone{BD completada y validada}{2025-04-15} \\
+    
+    % Fase 3: Desarrollo de Servicios
+    \ganttgroup{Fase 3: Servicios y Lógica}{2025-04-16}{2025-06-30} \\
+    \ganttbar{Implementar DatabaseHelper}{2025-04-16}{2025-05-05} \\
+    \ganttbar{Consultas de cascada (temp/hum/a-c)}{2025-05-06}{2025-05-25} \\
+    \ganttbar{Consultas de predicción (7/14/28 días)}{2025-05-26}{2025-06-10} \\
+    \ganttbar{Servicios ProjectService y MixtureService}{2025-06-11}{2025-06-25} \\
+    \ganttbar{Modelos de datos (ProjectData, etc.)}{2025-06-20}{2025-06-30} \\
+    \ganttmilestone{Servicios completos}{2025-06-30} \\
+    
+    % Fase 4: Desarrollo de UI
+    \ganttgroup{Fase 4: Interfaz de Usuario}{2025-07-01}{2025-09-15} \\
+    \ganttbar{Pantallas de autenticación}{2025-07-01}{2025-07-20} \\
+    \ganttbar{Hall (dashboard de proyectos)}{2025-07-21}{2025-08-05} \\
+    \ganttbar{Flujo en cascada (crear proyecto)}{2025-08-06}{2025-08-30} \\
+    \ganttbar{Vista detalle con gráficos}{2025-08-25}{2025-09-10} \\
+    \ganttbar{Validaciones y UX}{2025-09-05}{2025-09-15} \\
+    \ganttmilestone{UI funcional}{2025-09-15} \\
+    
+    % Fase 5: Pruebas y Calidad
+    \ganttgroup{Fase 5: Pruebas y SQA}{2025-09-16}{2025-10-31} \\
+    \ganttbar{Pruebas unitarias (DB y servicios)}{2025-09-16}{2025-09-30} \\
+    \ganttbar{Pruebas de integración}{2025-10-01}{2025-10-15} \\
+    \ganttbar{Pruebas de usabilidad (UAT)}{2025-10-10}{2025-10-25} \\
+    \ganttbar{Corrección de defectos}{2025-10-20}{2025-10-31} \\
+    \ganttmilestone{Producto validado}{2025-10-31} \\
+    
+    % Fase 6: Documentación y Entrega
+    \ganttgroup{Fase 6: Documentación y Entrega}{2025-11-01}{2025-11-30} \\
+    \ganttbar{Documentación técnica}{2025-11-01}{2025-11-15} \\
+    \ganttbar{Plan SQA}{2025-11-10}{2025-11-20} \\
+    \ganttbar{Manual de usuario}{2025-11-15}{2025-11-25} \\
+    \ganttbar{Preparación entrega final}{2025-11-20}{2025-11-30} \\
+    \ganttmilestone{Entrega Final}{2025-11-30}
+    
+\end{ganttchart}
+
+\vspace{1cm}
+
+\begin{tabular}{ll}
+\textbf{Responsable:} & Juan Diego Pedroza Sierra \\
+\textbf{Duración total:} & 11 meses (Enero - Noviembre 2025) \\
+\textbf{Hitos principales:} & 6 (uno por fase) \\
+\end{tabular}
+
+\end{document}

@@ -1,0 +1,46 @@
+% docs/documento_oficial/cap5_conclusiones.tex
+\section{Conclusiones y recomendaciones}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Conclusiones}
+
+Con base en los objetivos planteados y los resultados obtenidos sobre el conjunto de datos regional (1\,872 registros, 24--57\,MPa, tres niveles de temperatura: 10, 25 y 32\,°C; tres niveles de humedad: 20, 50 y 70\,\%; relaciones a/c de 0{,}40, 0{,}45 y 0{,}50), se concluye lo siguiente:
+
+\begin{itemize}
+  \item \textbf{Implementación de la herramienta:} Se desarrolló DIAPCE como una aplicación multiplataforma en Flutter con almacenamiento local mediante SQLite, \textbf{orientada a los estudiantes del semillero de investigación y de laboratorio de materiales de la UCC, Meta}. La herramienta asiste la toma de decisiones en el diseño de mezclas dentro del contexto formativo: registra parámetros de entrada, sugiere una dosificación base y clasifica el uso de aditivos (\textbf{P0}: sin~aditivo; \textbf{P1}--\textbf{P3}: impermeabilizante al 2, 3 y~4\,\%; \textbf{PP1}--\textbf{PP3}: plastificante al 0{,}2, 0{,}4 y~0{,}6\,\%), entregando proyecciones de resistencia a 7, 14 y 28 días en concordancia con ACI~211.1 y normas relacionadas. Su alcance es institucional y académico; no está diseñada para uso industrial ni general.
+
+  \item \textbf{Enfoque estudiantil y trazabilidad:} Se consolidó un flujo de trabajo pensado desde y para los estudiantes de los semilleros y laboratorios de la UCC, enfatizando trazabilidad (registro de insumos, resultados y versión del modelo) para favorecer reproducibilidad, evaluación docente y comparación entre ensayos.
+
+  \item \textbf{Desempeño en proyección de resistencia:} La validación Leave-One-Out sobre los 1\,872 registros arrojó errores de proyección menores a 2\,MPa en todos los horizontes evaluados: MAE\,=\,1{,}28\,MPa, RMSE\,=\,1{,}63\,MPa y MAPE\,=\,4{,}40\,\% a 7 días; MAE\,=\,1{,}77\,MPa, RMSE\,=\,2{,}21\,MPa y MAPE\,=\,4{,}61\,\% a 14 días; MAE\,=\,1{,}97\,MPa, RMSE\,=\,2{,}46\,MPa y MAPE\,=\,4{,}37\,\% a 28 días. Estos valores son adecuados para uso formativo en los rangos del dataset con mayor cobertura.
+
+  \item \textbf{Clasificación guiada de aditivos:} La clasificación automática por vecino más cercano (LOO) sobre las 7 clases P0--PP3 obtuvo un macro-F1\,=\,0{,}248. La clase P0 (control, sin aditivo) mostró el mejor desempeño individual (F1\,=\,0{,}532), mientras que las clases de impermeabilizante y plastificante presentaron solapamiento de resistencias medias (F1 entre 0{,}13 y 0{,}44). Esto confirma que la selección guiada en cascada ---y no la clasificación automática por resistencia--- es el enfoque correcto para la herramienta, ya que la resistencia sola no discrimina suficientemente entre aditivos.
+
+  \item \textbf{Adopción y operación:} El diseño offline-first y multiplataforma reduce fricciones de despliegue en entornos con conectividad limitada y equipos heterogéneos, facilitando su adopción en aula y laboratorio.
+
+  \item \textbf{Contribución y límites:} DIAPCE no sustituye el criterio del docente ni el cumplimiento normativo; lo complementa con evidencia sistematizada. Entre las limitaciones se encuentran: el dataset cubre únicamente 3 niveles discretos de temperatura y humedad y 3 valores de a/c, con desbalance de clase (P0 concentra el 25\,\% de los registros frente al 12{,}5\,\% de cada uno de los demás aditivos); la cobertura regional es exclusiva del Meta; y no se dispone de módulo de optimización automática ni de sincronización cliente-servidor, lo que define líneas claras de trabajo futuro.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Recomendaciones}
+
+A partir del desarrollo de DIAPCE y de los resultados obtenidos ---\textbf{herramienta formativa dirigida exclusivamente a los estudiantes del semillero de investigación y de las prácticas de laboratorio de materiales de la UCC, Meta}--- se proponen las siguientes recomendaciones:
+
+\begin{itemize}
+  \item \textbf{Ampliar y balancear el conjunto de datos:} El dataset actual presenta desbalance de clase: P0 (control) concentra 468 registros (25\,\%) frente a 234 (12{,}5\,\%) de cada uno de los seis aditivos restantes. Se recomienda incorporar más ensayos para los aditivos P1--P3 y PP1--PP3, ampliar los niveles de temperatura y humedad, y extender el rango de a/c más allá de los tres valores actuales.
+
+  \item \textbf{Mejorar la discriminación entre aditivos:} Los resultados de clasificación LOO revelan solapamiento significativo entre las clases de impermeabilizante y plastificante (macro-F1\,=\,0{,}248). Se recomienda explorar variables adicionales de discriminación (trabajabilidad, tiempo de fraguado, contenido de cemento) que permitan separar mejor las clases.
+
+  \item \textbf{Explorar modelos supervisados (ML):} Modelos como regresión regularizada o \textit{tree ensembles} entrenados sobre las mismas vistas SQL podrían reducir el error de proyección, especialmente en los rangos menos representados del dataset. Cualquier modelo ML debe validarse con partición entrenamiento/prueba, control de sobreajuste e interpretabilidad explícita.
+
+  \item \textbf{Evaluación continua y exportación de métricas:} Establecer un flujo reproducible que calcule y exporte periódicamente (CSV/\LaTeX) las métricas: F1 por clase (P0--PP3), MAE/RMSE/MAPE por horizonte (7/14/28 días) y coherencia ACI. Esto permite comparar el desempeño del sistema conforme crece el dataset en cada cohorte de laboratorio.
+
+  \item \textbf{Validación con ensayos reales de laboratorio:} Contrastar las proyecciones de DIAPCE con las resistencias medidas experimentalmente por los estudiantes (ASTM C39, NTC 673), documentando los casos donde el error supere el umbral formativo acordado con los docentes.
+
+  \item \textbf{Usabilidad y docencia:} Incorporar exportación a PDF/CSV de proyectos y resultados, plantillas de prácticas adaptadas a los cursos de la UCC, tutoriales integrados y consideraciones de accesibilidad. Esto refuerza el rol de DIAPCE como herramienta de aprendizaje.
+
+  \item \textbf{Escalabilidad opcional:} Evaluar a futuro una capa de sincronización/backend para consolidar datos entre dispositivos y mantener un versionado central del modelo, preservando siempre la operación offline como principio de diseño.
+
+  \item \textbf{Gobernanza de datos:} Mantener versionado de datasets y modelos, control de calidad de datos y lineamientos éticos para el uso de información experimental generada por los estudiantes de la UCC.
+
+  \item \textbf{Generalización regional (trabajo futuro a largo plazo):} Una vez consolidado el dataset del Meta, se podría evaluar la adaptación del sistema para otras regiones de Colombia con condiciones ambientales distintas, manteniendo el enfoque institucional y la validación experimental local como requisito previo.
+\end{itemize}

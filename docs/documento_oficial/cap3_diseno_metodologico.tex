@@ -1,0 +1,233 @@
+% docs/documento_oficial/cap3_diseno_metodologico.tex
+\section{Diseño metodológico}
+
+Este capítulo describe el proceso de diseño y construcción de DIAPCE, organizado en cinco fases: levantamiento de requisitos, modelado de datos, diseño de la solución, desarrollo e implementación, y pruebas de calidad.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Requisitos}
+
+Los requisitos de DIAPCE se identificaron a partir del análisis de las necesidades del semillero de investigación y de los laboratorios de materiales de la UCC, con el propósito de construir una herramienta formativa, trazable y operativa sin conexión.
+
+\subsubsection*{Requisitos funcionales}
+\begin{enumerate}
+    \item El sistema debe permitir la autenticación local de usuarios (registro e inicio de sesión).
+    \item El sistema debe permitir crear, visualizar y eliminar proyectos de diseño de mezclas.
+    \item El sistema debe implementar un flujo de selección en cascada: resistencia objetivo $\rightarrow$ temperatura $\rightarrow$ humedad $\rightarrow$ relación a/c $\rightarrow$ aditivo (P0--PP3).
+    \item El sistema debe calcular y mostrar proyecciones de resistencia a 7, 14 y 28 días basadas en el dataset experimental.
+    \item El sistema debe almacenar de forma persistente todos los parámetros de entrada y las predicciones generadas.
+    \item El sistema debe operar sin conexión a internet (\textit{offline-first}).
+    \item El sistema debe mostrar gráficos de composición de mezcla (pastel) y evolución de resistencia (línea).
+\end{enumerate}
+
+\subsubsection*{Requisitos no funcionales}
+\begin{itemize}
+    \item \textbf{Portabilidad:} la aplicación debe ejecutarse en Android, iOS, web y escritorio desde una única base de código.
+    \item \textbf{Rendimiento:} las consultas de predicción deben responder en menos de 500\,ms en dispositivos de gama media.
+    \item \textbf{Trazabilidad:} cada proyecto debe registrar los parámetros de entrada, la versión del dataset y la fecha de creación.
+    \item \textbf{Usabilidad:} la interfaz debe ser intuitiva para estudiantes sin experiencia previa en la herramienta.
+    \item \textbf{Mantenibilidad:} la arquitectura debe permitir incorporar nuevos modelos de predicción sin reescribir la capa de presentación.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Modelado}
+
+\subsubsection*{Esquema de la base de datos del servidor (PostgreSQL)}
+
+Como parte del análisis de los datos experimentales, se diseñó un esquema normalizado en PostgreSQL para el almacenamiento centralizado de los resultados de ensayos. El proceso de normalización progresiva resolvió problemas de ambigüedad y redundancia presentes en los datos originales, derivando en un diseño final de cuatro tablas interrelacionadas.
+
+\begin{lstlisting}[style=dbmlstyle, caption=Esquema de la base de datos en DBML (PostgreSQL).]
+Table TiposAditivo {
+  id integer [primary key, increment]
+  nombre varchar(50) [unique, not null]
+}
+
+Table Productos {
+  id integer [primary key, increment]
+  nombre_producto varchar(100) [unique, not null]
+  marca varchar(50)
+}
+
+Table Aditivos {
+  id integer [primary key, increment]
+  codigo varchar(10) [unique, not null]
+  porcentaje_aplicado varchar(10) [not null]
+  tipo_aditivo_id integer [not null, ref: > TiposAditivo.id]
+  producto_id integer [not null, ref: > Productos.id]
+}
+
+Table ResultadosConcreto {
+  id integer [primary key, increment]
+  temperatura integer [not null]
+  humedad integer [not null]
+  relacion_ac numeric(3,2) [not null]
+  edad_dias integer [not null]
+  resistencia_mpa numeric(10,2) [not null]
+  aditivo_id integer [not null, ref: > Aditivos.id]
+}
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{../images/diagrama_db.png}
+    \caption{Diagrama Entidad-Relación de la estructura final de 4 tablas.}
+    \label{fig:er-postgres}
+\end{figure}
+
+\subsubsection*{Esquema de la base de datos local (SQLite)}
+
+La base de datos local, gestionada con SQLite en el dispositivo del usuario, extiende el esquema anterior con tablas propias de la aplicación: \texttt{users}, \texttt{projects} y \texttt{mixtures}. Un índice compuesto en \texttt{ResultadosConcreto} optimiza las consultas de predicción en cascada.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{../images/diagrama_db_completo.jpg}
+    \caption{Diagrama Entidad-Relación de la base de datos local completa (SQLite).}
+    \label{fig:er-sqlite}
+\end{figure}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Diseño}
+
+% (Corresponde a 1.4.1 Planteamiento de la Solución: DIAPCE y 1.4.2 Propósito y Flujo Principal del documento original)
+\subsubsection*{Planteamiento de la solución: DIAPCE}
+
+DIAPCE es una aplicación desarrollada en Flutter, diseñada como una herramienta de apoyo para el diseño de mezclas de concreto, fundamentada en datos experimentales locales del semillero de la UCC. Su objetivo es asistir a los estudiantes en la selección de mezclas basando las recomendaciones en datos reales en lugar de estimaciones externas.
+
+\subsubsection*{Propósito y flujo principal}
+
+La aplicación permite crear y gestionar proyectos donde se definen condiciones controladas (temperatura, humedad, relación a/c, aditivos) y se obtienen predicciones de resistencia a los 7, 14 y 28 días calculadas a partir de la base de datos local. El flujo de usuario es el siguiente:
+
+\begin{enumerate}
+    \item El usuario inicia la aplicación e ingresa a su perfil.
+    \item Crea un nuevo proyecto especificando nombre, fecha, tipo de obra e imagen opcional.
+    \item Define las propiedades técnicas mediante selección en cascada: resistencia objetivo, temperatura, humedad, relación a/c y aditivo.
+    \item La aplicación consulta el dataset, calcula los promedios de resistencia y presenta una predicción gráfica y numérica.
+    \item El proyecto, junto con sus condiciones y predicciones, se guarda en SQLite asociado al perfil del usuario.
+\end{enumerate}
+
+\subsubsection*{Arquitectura del sistema}
+
+DIAPCE sigue el enfoque de \textit{Clean Architecture}, separando responsabilidades en tres capas:
+\begin{itemize}
+    \item \textbf{Dominio:} entidades de negocio (Proyecto, Mezcla, ResultadoConcreto) y casos de uso (CrearProyecto, ObtenerPrediccion, SeleccionarAditivo).
+    \item \textbf{Datos:} fuentes locales (SQLite vía \texttt{sqflite}), repositorios y modelos de mapeo desde/hacia el dominio.
+    \item \textbf{Presentación:} pantallas Flutter, \textit{widgets} reutilizables y gestión de estado.
+\end{itemize}
+
+\subsubsection*{Flujo de decisión en cascada}
+
+El núcleo funcional de DIAPCE es un árbol de decisión condicional que restringe progresivamente las opciones al usuario:
+\[
+\text{Resistencia objetivo} \;\rightarrow\; \text{Temperatura} \;\rightarrow\; \text{Humedad} \;\rightarrow\; \text{Relación a/c} \;\rightarrow\; \text{Aditivo (P0--PP3)}
+\]
+En cada paso, el sistema consulta la base de datos experimental y muestra únicamente los valores disponibles para las condiciones ya seleccionadas, eliminando combinaciones sin evidencia experimental.
+
+\subsubsection*{Diseño de la interfaz de usuario}
+
+Las pantallas principales definidas durante el diseño son:
+\begin{itemize}
+    \item \textbf{Inicio de sesión / Registro:} autenticación local con validación de campos.
+    \item \textbf{Panel de proyectos (Hall):} cuadrícula de proyectos con acciones de creación y eliminación.
+    \item \textbf{Crear proyecto:} formulario de selección en cascada con validación de rangos.
+    \item \textbf{Detalle de proyecto:} visualización de parámetros, predicciones y gráficos.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Desarrollo}
+
+\subsubsection*{Tecnologías utilizadas}
+
+\begin{itemize}
+    \item \textbf{Flutter / Dart:} framework multiplataforma para el desarrollo de la interfaz y la lógica de la aplicación.
+    \item \textbf{sqflite:} biblioteca para la gestión de la base de datos SQLite local.
+    \item \textbf{fl\_chart:} biblioteca para la generación de gráficos interactivos (pastel y línea).
+    \item \textbf{csv:} biblioteca para la lectura e importación del dataset experimental desde el archivo \texttt{csv\_datos\_1.1.csv}.
+\end{itemize}
+
+\subsubsection*{Inicialización del dataset}
+
+Al ejecutarse por primera vez, la aplicación lee el archivo CSV embebido, procesa sus registros y los inserta en la tabla \texttt{ResultadosConcreto} de la base de datos local. Los registros existentes no se duplican gracias a la restricción \texttt{UNIQUE} sobre el índice compuesto de búsqueda.
+
+\subsubsection*{Consulta clave de predicción}
+
+La consulta fundamental que la aplicación ejecuta para obtener los promedios de resistencia a los 7, 14 y 28 días se basa en los parámetros seleccionados por el usuario:
+
+\begin{lstlisting}[style=sqlstyle, caption=Consulta clave para calcular promedios de resistencia.]
+SELECT
+    edad_dias,
+    ROUND(AVG(resistencia_mpa), 2) AS resistencia_promedio,
+    COUNT(*) AS num_muestras
+FROM 
+    resultados_concreto
+WHERE 
+    temperatura = ? AND humedad = ? AND relacion_ac = ? AND aditivo_id = ?
+GROUP BY 
+    edad_dias
+ORDER BY 
+    edad_dias ASC;
+\end{lstlisting}
+
+\subsubsection*{Vistas de la aplicación}
+
+\paragraph{Inicio de sesión (\texttt{lib/view/main\_login.dart}).}
+Autenticación local de usuarios con validación básica de campos y alternancia de visibilidad de contraseña.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.45\linewidth]{../images/main_login.jpg}
+  \caption{Pantalla de inicio de sesión de la aplicación.}
+  \label{fig:view-login}
+\end{figure}
+
+\paragraph{Panel de proyectos --- Hall (\texttt{lib/view/hall.dart}).}
+Listado en cuadrícula de los proyectos del usuario con acciones de creación y eliminación con confirmación.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.45\linewidth]{../images/hall_lleno.jpg}
+  \caption{Panel principal (Hall) con proyectos del usuario.}
+  \label{fig:view-hall}
+\end{figure}
+
+\paragraph{Crear proyecto (\texttt{lib/view/create\_proyect\_screen.dart}).}
+Flujo de selección en cascada con campo de resistencia objetivo validado en el rango [24{,}00,\,57{,}00]\,MPa.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.45\linewidth]{../images/create_proyect_screen.jpg}
+  \caption{Pantalla de creación de proyecto con flujo en cascada.}
+  \label{fig:view-crear-proyecto}
+\end{figure}
+
+\paragraph{Detalle de proyecto (\texttt{lib/view/ViewExistingProjectScreen.dart}).}
+Visualización integral con predicciones a 7/14/28 días, gráfico de composición (pastel) y evolución de resistencia (línea).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.45\linewidth]{../images/ViewExistingProjectScreen.jpg}
+  \caption{Detalle de un proyecto existente con gráficos de predicción.}
+  \label{fig:view-detalle}
+\end{figure}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Pruebas}
+
+Las pruebas se organizan en tres niveles: funcionales, de calidad del modelo y de cumplimiento normativo.
+
+\subsubsection*{Pruebas funcionales}
+
+Se verificaron los siguientes escenarios:
+\begin{itemize}
+    \item Registro e inicio de sesión de usuario con credenciales válidas e inválidas.
+    \item Creación de proyecto con todos los campos del flujo en cascada completos.
+    \item Eliminación de proyecto con confirmación y verificación de borrado en cascada.
+    \item Visualización correcta de gráficos tras recuperar una predicción del dataset.
+    \item Operación completa sin conexión a internet en dispositivo Android.
+\end{itemize}
+
+\subsubsection*{Pruebas de calidad del modelo de predicción}
+
+La validación del modelo de predicción se realizó mediante \textit{Leave-One-Out Cross-Validation} (LOO) sobre los 1\,872 registros del dataset. Los resultados se detallan en el Capítulo~4.
+
+\subsubsection*{Pruebas de cumplimiento normativo}
+
+Se verificó que las recomendaciones de dosificación base generadas por DIAPCE sean coherentes con los rangos establecidos por ACI\,211.1 para los niveles de temperatura, humedad y relación a/c presentes en el dataset (3 niveles de temperatura: 10, 25 y 32~°C; 3 niveles de humedad: 20, 50 y 70~\%; 3 valores de a/c: 0{,}40, 0{,}45 y 0{,}50).

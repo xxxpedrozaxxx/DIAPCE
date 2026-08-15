@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="2400" dy="2400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="2000" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ===== HEADER ===== -->
+    <mxCell id="hdr_bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0E7490;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="0" y="0" width="2400" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="hdr_title" value="&lt;font style=&quot;font-size:42px;font-weight:bold;color:#ffffff&quot;&gt;Cascading Decision Tree — Dataset-Driven Filtering&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="1400" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="hdr_sub" value="&lt;font style=&quot;font-size:12px;color:#B0E0E6&quot;&gt;Tipo de obra: Metadata (puentes, muros, etc.) — &lt;b&gt;NO afecta&lt;/b&gt; la cascada de selección. Solo los datos experimentales filtran.&lt;/font&gt;" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="40" y="60" width="1200" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- ===== RAÍZ: START ===== -->
+    <mxCell id="root" value="&lt;b&gt;START: Create Project&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F2937;strokeColor=#111827;strokeWidth=3;fontColor=#ffffff;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="140" width="300" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 1: RESISTENCIA OBJETIVO ===== -->
+    <mxCell id="l1_title" value="&lt;b&gt;&lt;font style=&quot;font-size:14px&quot;&gt;LEVEL 1: TARGET STRENGTH (MPa)&lt;/font&gt;&lt;/b&gt;&lt;br/&gt;&lt;font style=&quot;font-size:11px;color:#555&quot;&gt;Select from available range in dataset&lt;/font&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+      <mxGeometry x="600" y="260" width="1200" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- Nodos resistencia -->
+    <mxCell id="r1_low" value="&lt;b&gt;24–28 MPa&lt;/b&gt;&lt;br/&gt;(Low)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E40AF;strokeColor:#1E3A8A;strokeWidth=2;fontColor=#ffffff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="250" y="340" width="120" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="r1_med" value="&lt;b&gt;28–35 MPa&lt;/b&gt;&lt;br/&gt;(Medium)" style="rounded=1;whiteSpace=wrap;html=1;fillColor:#1E40AF;strokeColor:#1E3A8A;strokeWidth=2;fontColor=#ffffff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="340" width="120" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="r1_high" value="&lt;b&gt;35–57 MPa&lt;/b&gt;&lt;br/&gt;(High)" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#1E40AF;strokeColor:#1E3A8A;strokeWidth=2;fontColor:#ffffff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1850" y="340" width="120" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Flechas root → resistencia -->
+    <mxCell id="e_root_r1" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.25;exitY=1;entryX=0.5;entryY=0;strokeColor=#374151;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="root" target="r1_low" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_root_r2" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#374151;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="root" target="r1_med" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_root_r3" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.75;exitY=1;entryX=0.5;entryY=0;strokeColor:#374151;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="root" target="r1_high" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 2: TEMPERATURA (rama BAJA) ===== -->
+    <mxCell id="l2_low_title" value="&lt;b&gt;&lt;font style=&quot;font-size:12px&quot;&gt;Temperature (°C)&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="50" y="460" width="160" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_low_10" value="10 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="20" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_low_25" value="25 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="105" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_low_32" value="32 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="190" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Flechas r1_low → temp -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=1;entryX=0;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_low" target="t2_low_10" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.3;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_low" target="t2_low_25" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.6;exitY=1;entryX=1;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_low" target="t2_low_32" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 2: TEMPERATURA (rama MEDIA) ===== -->
+    <mxCell id="l2_med_title" value="&lt;b&gt;&lt;font style=&quot;font-size:12px&quot;&gt;Temperature (°C)&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="950" y="460" width="160" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_med_10" value="10 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="920" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_med_25" value="25 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1005" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_med_32" value="32 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Flechas r1_med → temp -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=1;entryX=0;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_med" target="t2_med_10" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.3;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_med" target="t2_med_25" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.6;exitY=1;entryX=1;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_med" target="t2_med_32" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 2: TEMPERATURA (rama ALTA) ===== -->
+    <mxCell id="l2_high_title" value="&lt;b&gt;&lt;font style=&quot;font-size:12px&quot;&gt;Temperature (°C)&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1850" y="460" width="160" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_high_10" value="10 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1820" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_high_25" value="25 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1905" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="t2_high_32" value="32 °C" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#0891B2;strokeColor:#0E7490;fontColor:#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1990" y="500" width="70" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Flechas r1_high → temp -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=1;entryX=0;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_high" target="t2_high_10" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.3;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_high" target="t2_high_25" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.6;exitY=1;entryX=1;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="r1_high" target="t2_high_32" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 3: HUMEDAD (ejemplo: 25°C rama media) ===== -->
+    <mxCell id="l3_title" value="&lt;b&gt;&lt;font style=&quot;font-size:12px&quot;&gt;Humidity (%) — Example: 25°C branch&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="920" y="600" width="200" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="h3_20" value="20 %" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#7C3AED;strokeColor:#5B21B6;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="920" y="640" width="60" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="h3_50" value="50 %" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#7C3AED;strokeColor:#5B21B6;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1005" y="640" width="60" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="h3_70" value="70 %" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#7C3AED;strokeColor:#5B21B6;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="640" width="60" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Flecha t2_med_25 → humedad -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=1;entryX=0;entryY=0;strokeColor=#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="t2_med_25" target="h3_20" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="t2_med_25" target="h3_50" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=1;exitY=1;entryX=1;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="t2_med_25" target="h3_70" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 4: W/C RATIO (ejemplo: 50% rama) ===== -->
+    <mxCell id="l4_title" value="&lt;b&gt;&lt;font style=&quot;font-size:12px&quot;&gt;w/c Ratio — Example: 50% branch&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="950" y="740" width="150" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="w4_040" value="0.40" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#16A34A;strokeColor:#15803D;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="950" y="780" width="60" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="w4_045" value="0.45" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#16A34A;strokeColor:#15803D;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1025" y="780" width="60" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="w4_050" value="0.50" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#16A34A;strokeColor:#15803D;fontColor=#ffffff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1100" y="780" width="60" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Flecha h3_50 → w/c -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=1;entryX=0;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="h3_50" target="w4_040" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="h3_50" target="w4_045" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=1;exitY=1;entryX=1;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="h3_50" target="w4_050" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== NIVEL 5: ADITIVO (ejemplo: 0.45 rama) ===== -->
+    <mxCell id="l5_title" value="&lt;b&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Admixture — Example: 0.45 branch (final leaf)&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="950" y="880" width="150" height="24" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_p0" value="P0" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="900" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_p1" value="P1" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="950" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_p2" value="P2" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_p3" value="P3" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_pp1" value="PP1" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1100" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_pp2" value="PP2" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1150" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="a5_pp3" value="PP3" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#C026D3;strokeColor:#7E22CE;fontColor=#ffffff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="920" width="40" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- Flecha w4_045 → admixtures -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.2;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_p0" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.3;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_p1" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.4;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_p2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_p3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.6;exitY=1;entryX=0.5;entryY=0;strokeColor=#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_pp1" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.7;exitY=1;entryX=0.5;entryY=0;strokeColor:#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_pp2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.8;exitY=1;entryX=0.5;entryY=0;strokeColor=#999;strokeWidth=1;endArrow=block;endFill=1;" edge="1" source="w4_045" target="a5_pp3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ===== RESULTADO FINAL ===== -->
+    <mxCell id="result_bg" value="" style="rounded=1;whiteSpace:wrap;html=1;fillColor:#DBEAFE;strokeColor:#0284C7;strokeWidth=3;" vertex="1" parent="1">
+      <mxGeometry x="700" y="1020" width="700" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="result_title" value="&lt;b&gt;&lt;font style=&quot;font-size:14px;color:#0C4A6E&quot;&gt;📊 PREDICTION OUTPUT&lt;/font&gt;&lt;/b&gt;" style="text;html=1;align=center;strokeColor=none;fillColor=none;" vertex="1" parent="result_bg">
+      <mxGeometry x="0" y="4" width="700" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="result_content" value="Resistance projections (7 / 14 / 28 days)&lt;br/&gt;Database query filtered by: (temp=25, humidity=50, w/c=0.45, admixture=P1)&lt;br/&gt;Result: Saved to SQLite &lt;b&gt;mixtures&lt;/b&gt; table with timestamps" style="text;html=1;align=center;strokeColor=none;fillColor=none;fontSize=11;" vertex="1" parent="result_bg">
+      <mxGeometry x="10" y="32" width="680" height="76" as="geometry" />
+    </mxCell>
+
+    <!-- Flecha desde aditivo a resultado -->
+    <mxCell style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor:#0284C7;strokeWidth=3;endArrow=block;endFill=1;" edge="1" source="a5_p1" target="result_bg" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>

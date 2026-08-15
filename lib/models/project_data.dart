@@ -8,11 +8,16 @@ class ProjectData {
   final DateTime? selectedDate;
   final File? selectedImage; // Para la imagen seleccionada
   final String? creatorName;
-  final String? resistanceLevel; // De Properties
-  final String? temperature;     // De Properties
-  final String? humidity;        // De Properties
   final String? workType;        // De Properties
-  final int? mixtureId;// ID de la mezcla asociada
+  final double resistanceTarget; // Resistencia objetivo en MPa (24-57 con hasta 2 decimales)
+  final int temperature;     // Temperatura en grados Celsius
+  final int humidity;        // Humedad relativa en porcentaje
+  final double relacionAc;   // Relación agua/cemento
+  final int? aditivoId;      // ID del aditivo seleccionado
+  final double? resistenciaPredicha7d;  // Predicción a 7 días
+  final double? resistenciaPredicha14d; // Predicción a 14 días
+  final double? resistenciaPredicha28d; // Predicción a 28 días
+  final int? mixtureId;      // ID de la mezcla asociada
 
   ProjectData({
     this.id,
@@ -21,10 +26,15 @@ class ProjectData {
     this.selectedDate,
     this.selectedImage,
     this.creatorName,
-    this.resistanceLevel,
-    this.temperature,
-    this.humidity,
     this.workType,
+    required this.resistanceTarget,
+    required this.temperature,
+    required this.humidity,
+    required this.relacionAc,
+    this.aditivoId,
+    this.resistenciaPredicha7d,
+    this.resistenciaPredicha14d,
+    this.resistenciaPredicha28d,
     this.mixtureId,
   });
 
@@ -41,10 +51,15 @@ class ProjectData {
           ? File(map['selected_image_path']) 
           : null,
       creatorName: map['creator_name'],
-      resistanceLevel: map['resistance_level'],
-      temperature: map['temperature'],
-      humidity: map['humidity'],
       workType: map['work_type'],
+      resistanceTarget: (map['resistance_target'] as num?)?.toDouble() ?? 28.0,
+      temperature: map['temperature'] ?? 25,
+      humidity: map['humidity'] ?? 50,
+      relacionAc: map['relacion_ac']?.toDouble() ?? 0.5,
+      aditivoId: map['aditivo_id'],
+      resistenciaPredicha7d: map['resistencia_predicha_7d']?.toDouble(),
+      resistenciaPredicha14d: map['resistencia_predicha_14d']?.toDouble(),
+      resistenciaPredicha28d: map['resistencia_predicha_28d']?.toDouble(),
       mixtureId: map['mixture_id'],
     );
   }
@@ -58,10 +73,15 @@ class ProjectData {
       'selected_date': selectedDate?.toIso8601String(),
       'selected_image_path': selectedImage?.path,
       'creator_name': creatorName,
-      'resistance_level': resistanceLevel,
+      'work_type': workType,
+      'resistance_target': resistanceTarget,
       'temperature': temperature,
       'humidity': humidity,
-      'work_type': workType,
+      'relacion_ac': relacionAc,
+      'aditivo_id': aditivoId,
+      'resistencia_predicha_7d': resistenciaPredicha7d,
+      'resistencia_predicha_14d': resistenciaPredicha14d,
+      'resistencia_predicha_28d': resistenciaPredicha28d,
       'mixture_id': mixtureId,
     };
   }
@@ -74,10 +94,15 @@ class ProjectData {
     DateTime? selectedDate,
     File? selectedImage,
     String? creatorName,
-    String? resistanceLevel,
-    String? temperature,
-    String? humidity,
     String? workType,
+    double? resistanceTarget,
+    int? temperature,
+    int? humidity,
+    double? relacionAc,
+    int? aditivoId,
+    double? resistenciaPredicha7d,
+    double? resistenciaPredicha14d,
+    double? resistenciaPredicha28d,
     int? mixtureId,
   }) {
     return ProjectData(
@@ -87,10 +112,15 @@ class ProjectData {
       selectedDate: selectedDate ?? this.selectedDate,
       selectedImage: selectedImage ?? this.selectedImage,
       creatorName: creatorName ?? this.creatorName,
-      resistanceLevel: resistanceLevel ?? this.resistanceLevel,
+      workType: workType ?? this.workType,
+      resistanceTarget: resistanceTarget ?? this.resistanceTarget,
       temperature: temperature ?? this.temperature,
       humidity: humidity ?? this.humidity,
-      workType: workType ?? this.workType,
+      relacionAc: relacionAc ?? this.relacionAc,
+      aditivoId: aditivoId ?? this.aditivoId,
+      resistenciaPredicha7d: resistenciaPredicha7d ?? this.resistenciaPredicha7d,
+      resistenciaPredicha14d: resistenciaPredicha14d ?? this.resistenciaPredicha14d,
+      resistenciaPredicha28d: resistenciaPredicha28d ?? this.resistenciaPredicha28d,
       mixtureId: mixtureId ?? this.mixtureId,
     );
   }
@@ -98,6 +128,6 @@ class ProjectData {
   // Opcional: Un método 'toString' para facilitar la depuración
   @override
   String toString() {
-    return 'ProjectData(id: $id, userId: $userId, projectName: $projectName, selectedDate: $selectedDate, creatorName: $creatorName, resistanceLevel: $resistanceLevel, temperature: $temperature, humidity: $humidity, workType: $workType, selectedImage: [${selectedImage?.path}, mixtureId: $mixtureId)';
+    return 'ProjectData(id: $id, userId: $userId, projectName: $projectName, temperature: $temperature, humidity: $humidity, relacionAc: $relacionAc)';
   }
 }

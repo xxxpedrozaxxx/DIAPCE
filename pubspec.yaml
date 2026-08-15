@@ -14,6 +14,7 @@ dependencies:
   sqflite: ^2.2.0
   path: ^1.8.3
   fl_chart: ^0.68.0      # Para gráficas de pastel
+  csv: ^6.0.0            # Para leer datos experimentales
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +23,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - lib/data/csv_datos_1.1.csv

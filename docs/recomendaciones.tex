@@ -1,0 +1,24 @@
+% docs/recomendaciones.tex
+\section{Recomendaciones}
+
+A partir del desarrollo de DIAPCE y de los resultados obtenidos —\textbf{herramienta formativa dirigida exclusivamente a los estudiantes del semillero de investigación y de las prácticas de laboratorio de materiales de la UCC, Meta}— se proponen las siguientes recomendaciones:
+
+\begin{itemize}
+  \item \textbf{Ampliar y balancear el conjunto de datos:} El dataset actual presenta desbalance de clase: P0 (control) concentra 468 registros (25\,\%) frente a 234 (12{,}5\,\%) de cada uno de los seis aditivos restantes. Se recomienda incorporar más ensayos para los aditivos P1--P3 y PP1--PP3, ampliar los niveles de temperatura (actualmente solo 10, 25 y 32\,°C) y humedad (20, 50 y 70\,\%), y extender el rango de a/c más allá de los tres valores actuales (0{,}40, 0{,}45 y 0{,}50). Cada sesión de laboratorio debe documentar decisiones de limpieza y criterios de exclusión para garantizar reproducibilidad.
+
+  \item \textbf{Mejorar la discriminación entre aditivos:} Los resultados de clasificación LOO revelan solapamiento significativo entre las clases de impermeabilizante y plastificante (macro-F1\,=\,0{,}248; F1 de P1--PP2 entre 0{,}13 y 0{,}19). Se recomienda explorar variables adicionales de discriminación (p.\,ej., trabajabilidad, tiempo de fraguado, contenido de cemento) que permitan separar mejor las clases y eventualmente habilitar una clasificación automática más confiable.
+
+  \item \textbf{Explorar modelos supervisados (ML):} El error de proyección LOO actual es razonable (MAPE\,$<$\,5\,\% en los tres horizontes), pero modelos como regresión regularizada o \textit{tree ensembles} entrenados sobre las mismas vistas SQL podrían reducirlo, especialmente en los rangos menos representados del dataset. Cualquier modelo ML debe validarse con partición entrenamiento/prueba, control de sobreajuste e interpretabilidad explícita.
+
+  \item \textbf{Evaluación continua y exportación de métricas:} Establecer un flujo reproducible que calcule y exporte periódicamente (CSV/\LaTeX) las métricas: F1 por clase (P0--PP3), MAE/RMSE/MAPE por horizonte (7/14/28 días) y coherencia ACI. Esto permite comparar el desempeño del sistema conforme crece el dataset en cada cohorte de laboratorio.
+
+  \item \textbf{Validación con ensayos reales de laboratorio:} Contrastar las proyecciones de DIAPCE con las resistencias medidas experimentalmente por los estudiantes (ASTM C39, NTC 673), documentando los casos donde el error supere el umbral formativo acordado con los docentes.
+
+  \item \textbf{Usabilidad y docencia:} Incorporar exportación a PDF/CSV de proyectos y resultados, plantillas de prácticas adaptadas a los cursos de la UCC, tutoriales integrados y consideraciones de accesibilidad. Esto refuerza el rol de DIAPCE como herramienta de aprendizaje y facilita su uso por parte de docentes en la evaluación de prácticas.
+
+  \item \textbf{Escalabilidad opcional:} Evaluar a futuro una capa de sincronización/backend para consolidar datos entre dispositivos, gestionar usuarios y mantener un versionado central del modelo, preservando siempre la operación offline como principio de diseño.
+
+  \item \textbf{Gobernanza de datos:} Mantener versionado de datasets y modelos, control de calidad de datos y lineamientos éticos para el uso de información experimental generada por los estudiantes de la UCC.
+
+  \item \textbf{Generalización regional (trabajo futuro a largo plazo):} Una vez consolidado el dataset del Meta, se podría evaluar la adaptación del sistema para otras regiones de Colombia con condiciones ambientales distintas, manteniendo el enfoque institucional y la validación experimental local como requisito previo.
+\end{itemize}

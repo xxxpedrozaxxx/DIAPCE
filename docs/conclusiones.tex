@@ -1,0 +1,18 @@
+% docs/conclusiones.tex
+\section{Conclusiones}
+
+Con base en los objetivos planteados y los resultados obtenidos sobre el conjunto de datos regional (1\,872 registros, 24--57\,MPa, tres niveles de temperatura: 10, 25 y 32\,°C; tres niveles de humedad: 20, 50 y 70\,\%; relaciones a/c de 0{,}40, 0{,}45 y 0{,}50), se concluye lo siguiente:
+
+\begin{itemize}
+  \item \textbf{Implementación de la herramienta:} Se desarrolló DIAPCE como una aplicación multiplataforma en Flutter con almacenamiento local mediante SQLite, \textbf{orientada a los estudiantes del semillero de investigación y de laboratorio de materiales de la UCC, Meta}. La herramienta asiste la toma de decisiones en el diseño de mezclas dentro del contexto formativo: registra parámetros de entrada, sugiere una dosificación base y clasifica el uso de aditivos (\textbf{P0}: sin~aditivo; \textbf{P1}--\textbf{P3}: impermeabilizante al 2, 3 y~4\,\%; \textbf{PP1}--\textbf{PP3}: plastificante al 0{,}2, 0{,}4 y~0{,}6\,\%), entregando proyecciones de resistencia a 7, 14 y 28 días en concordancia con ACI~211.1 y normas relacionadas. Su alcance es institucional y académico; no está diseñada para uso industrial ni general.
+
+  \item \textbf{Enfoque estudiantil y trazabilidad:} Se consolidó un flujo de trabajo pensado desde y para los estudiantes de los semilleros y laboratorios de la UCC, enfatizando trazabilidad (registro de insumos, resultados y versión del modelo) para favorecer reproducibilidad, evaluación docente y comparación entre ensayos.
+
+  \item \textbf{Desempeño en proyección de resistencia:} La validación Leave-One-Out sobre los 1\,872 registros arrojó errores de proyección menores a 2\,MPa en todos los horizontes evaluados: MAE\,=\,1{,}28\,MPa, RMSE\,=\,1{,}63\,MPa y MAPE\,=\,4{,}40\,\% a 7 días; MAE\,=\,1{,}77\,MPa, RMSE\,=\,2{,}21\,MPa y MAPE\,=\,4{,}61\,\% a 14 días; MAE\,=\,1{,}97\,MPa, RMSE\,=\,2{,}46\,MPa y MAPE\,=\,4{,}37\,\% a 28 días. Estos valores son adecuados para uso formativo en los rangos del dataset con mayor cobertura.
+
+  \item \textbf{Clasificación guiada de aditivos:} La clasificación automática por vecino más cercano (LOO) sobre las 7 clases P0--PP3 obtuvo un macro-F1\,=\,0{,}248. La clase P0 (control, sin aditivo) mostró el mejor desempeño individual (F1\,=\,0{,}532), mientras que las clases de impermeabilizante y plastificante presentaron solapamiento de resistencias medias (F1 entre 0{,}13 y 0{,}44). Esto confirma que la selección guiada en cascada —y no la clasificación automática por resistencia— es el enfoque correcto para la herramienta, ya que la resistencia sola no discrimina suficientemente entre aditivos.
+
+  \item \textbf{Adopción y operación:} El diseño offline-first y multiplataforma reduce fricciones de despliegue en entornos con conectividad limitada y equipos heterogéneos, facilitando su adopción en aula y laboratorio.
+
+  \item \textbf{Contribución y límites:} DIAPCE no sustituye el criterio del docente ni el cumplimiento normativo; lo complementa con evidencia sistematizada. Entre las limitaciones se encuentran: el dataset cubre únicamente 3 niveles discretos de temperatura y humedad y 3 valores de a/c, con desbalance de clase (P0 concentra el 25\,\% de los registros frente al 12{,}5\,\% de cada uno de los demás aditivos); la cobertura regional es exclusiva del Meta; y no se dispone de módulo de optimización automática ni de sincronización cliente-servidor, lo que define líneas claras de trabajo futuro.
+\end{itemize}
