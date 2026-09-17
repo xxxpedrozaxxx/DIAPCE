@@ -15,6 +15,7 @@ dependencies:
   path: ^1.8.3
   fl_chart: ^0.68.0      # Para gráficas de pastel
   csv: ^6.0.0            # Para leer datos experimentales
+  sqflite_common_ffi: ^2.3.3
 
 dev_dependencies:
   flutter_test:
