@@ -16,6 +16,7 @@ dependencies:
   fl_chart: ^0.68.0      # Para gráficas de pastel
   csv: ^6.0.0            # Para leer datos experimentales
   sqflite_common_ffi: ^2.3.3
+  google_fonts: ^8.2.1
 
 dev_dependencies:
   flutter_test:

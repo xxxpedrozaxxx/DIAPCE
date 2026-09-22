@@ -1,12 +1,21 @@
 // lib/view/create_project_screen.dart
 
 import 'dart:io';
+
+import 'package:diapce_aplicationn/components/app_button.dart';
+import 'package:diapce_aplicationn/components/app_card.dart';
+import 'package:diapce_aplicationn/components/app_choice_chips.dart';
+import 'package:diapce_aplicationn/components/bottom_action_bar.dart';
+import 'package:diapce_aplicationn/components/fade_slide_in.dart';
+import 'package:diapce_aplicationn/components/section_header.dart';
+import 'package:diapce_aplicationn/core/database_helper.dart';
+import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
-import 'package:diapce_aplicationn/core/database_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class CreateProjectScreen extends StatefulWidget {
   final int userId;
@@ -33,14 +42,24 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   int? _selectedAditivoId;
   String? _selectedWorkType;
 
-  // Opciones disponibles para los dropdowns
-  List<int> _availableTemperatures = [10, 25, 32];
+  // Opciones disponibles para los selectores
+  final List<int> _availableTemperatures = [10, 25, 32];
   List<int> _availableHumidities = [];
   List<double> _availableRelacionesAc = [];
   List<Map<String, dynamic>> _availableAditivos = [];
 
+  static const List<(String value, String label)> _workTypes = [
+    ('Puentes', 'Puentes'),
+    ('Tuneles', 'Túneles'),
+    ('Muros', 'Muros de contención'),
+  ];
+
   // GlobalKey para el Form
   final _formKey = GlobalKey<FormState>();
+
+  // Muestra errores inline en los selectores tras un intento de envío.
+  bool _showSelectionErrors = false;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -89,7 +108,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     });
   }
 
-
   @override
   void dispose() {
     _projectNameController.dispose();
@@ -104,19 +122,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
-       builder: (context, child) { // Opcional: Estilo del DatePicker
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF27AE60), 
-              onPrimary: Colors.white, 
-            ),
-            buttonTheme: const ButtonThemeData(textTheme: ButtonTextTheme.primary),
-            dialogBackgroundColor: Colors.white,
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -135,6 +140,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   }
 
   void _submitAndNavigateToDetails() async {
+    setState(() => _showSelectionErrors = true);
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -144,13 +150,16 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       );
       return;
     }
-    if (_selectedResistanceTarget == null || _selectedTemperature == null || 
-        _selectedHumidity == null || _selectedRelacionAc == null) {
+    if (_selectedResistanceTarget == null || _selectedTemperature == null ||
+        _selectedHumidity == null || _selectedRelacionAc == null ||
+        _selectedWorkType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, completa todas las condiciones técnicas.')),
       );
       return;
     }
+
+    setState(() => _submitting = true);
 
     // Calcular resistencias predichas basadas en los datos experimentales
     final db = DatabaseHelper();
@@ -160,6 +169,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       relacionAc: _selectedRelacionAc!,
       aditivoId: _selectedAditivoId ?? 1, // Si no se seleccionó aditivo, usar el primero
     );
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
 
     // Navega a ViewExistingProjectScreen con isNewProject=true
     final projectDataFromDetails = await Navigator.push<ProjectData>(
@@ -192,269 +204,349 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     }
   }
 
+  String _temperatureLabel(int temp) {
+    if (temp == 10) return 'Baja';
+    if (temp == 25) return 'Ambiente';
+    return 'Alta';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFECF0F1),
       appBar: AppBar(
-        title: const Text('Crear Nuevo Proyecto'),
-        backgroundColor: const Color(0xFF2C3E50),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Nuevo proyecto'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form( // Envolver en un Form para validación
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildSectionContainer([ // Sección de Datos Generales
-                const Text("Datos Generales", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _projectNameController,
-                  decoration: _inputDecoration(labelText: 'Nombre del proyecto'),
-                  validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
-                ),
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () => _pickDate(context),
-                  child: AbsorbPointer(
-                    child: TextFormField(
-                      decoration: _inputDecoration(
-                        labelText: _selectedDate == null
-                            ? 'Fecha'
-                            : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
-                        prefixIcon: Icons.calendar_today,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl * 2.5,
+          ),
+          children: [
+            FadeSlideIn(
+              index: 0,
+              child: Text(
+                'Define las\ncondiciones de obra.',
+                style: text.headlineLarge,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            FadeSlideIn(
+              index: 1,
+              child: Text(
+                'La predicción de resistencia se calcula con datos experimentales que coinciden con tu selección.',
+                style: text.bodySmall,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // ── Datos generales ────────────────────────────────────────
+            FadeSlideIn(
+              index: 2,
+              child: AppCard(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      flex: 2, // Un poco más de espacio para el nombre del creador
-                      child: TextFormField(
-                        controller: _creatorNameController,
-                        decoration: _inputDecoration(labelText: 'Nombre del creador'),
-                         validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+                    const SectionHeader(eyebrow: 'Paso 1', title: 'Datos generales'),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _projectNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del proyecto',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      textInputAction: TextInputAction.next,
+                      validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _creatorNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre del creador',
+                        prefixIcon: Icon(Icons.person_outline_rounded),
+                      ),
+                      textInputAction: TextInputAction.next,
+                      validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    GestureDetector(
+                      onTap: () => _pickDate(context),
+                      child: AbsorbPointer(
+                        child: TextFormField(
+                          key: ValueKey(_selectedDate),
+                          initialValue: _selectedDate == null
+                              ? ''
+                              : DateFormat('dd/MM/yyyy').format(_selectedDate!),
+                          decoration: const InputDecoration(
+                            labelText: 'Fecha',
+                            hintText: 'Selecciona una fecha',
+                            prefixIcon: Icon(Icons.calendar_today_outlined),
+                            suffixIcon: Icon(Icons.expand_more_rounded),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 1,
-                      child: GestureDetector(
-                        onTap: _pickImage,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                    const SizedBox(height: AppSpacing.md),
+                    _ImagePickerTile(image: _selectedImage, onTap: _pickImage),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // ── Condiciones técnicas ───────────────────────────────────
+            FadeSlideIn(
+              index: 3,
+              child: AppCard(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionHeader(
+                      eyebrow: 'Paso 2',
+                      title: 'Condiciones técnicas',
+                      subtitle: 'Cada selección habilita la siguiente.',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _resistanceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Resistencia objetivo',
+                        hintText: '24 – 57',
+                        prefixIcon: Icon(Icons.speed_rounded),
+                        suffixText: 'MPa',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}\.?\d{0,2}')),
+                      ],
+                      onChanged: (value) {
+                        final double? parsed = double.tryParse(value);
+                        setState(() => _selectedResistanceTarget = parsed);
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Campo requerido';
+                        final double? resistance = double.tryParse(value);
+                        if (resistance == null) return 'Ingrese un número válido';
+                        if (resistance < 24 || resistance > 57) return 'Debe estar entre 24 y 57 MPa';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    _FieldLabel(
+                      'Temperatura',
+                      error: _showSelectionErrors && _selectedTemperature == null,
+                    ),
+                    AppChoiceChips<int>(
+                      options: _availableTemperatures,
+                      selected: _selectedTemperature,
+                      labelBuilder: (t) => '$t °C',
+                      captionBuilder: _temperatureLabel,
+                      onSelected: (value) {
+                        setState(() => _selectedTemperature = value);
+                        _loadHumidityOptions(value);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    _FieldLabel(
+                      'Humedad relativa',
+                      error: _showSelectionErrors && _selectedHumidity == null,
+                    ),
+                    AppChoiceChips<int>(
+                      options: _availableHumidities,
+                      selected: _selectedHumidity,
+                      labelBuilder: (h) => '$h %',
+                      emptyHint: 'Selecciona una temperatura primero',
+                      onSelected: (value) {
+                        setState(() => _selectedHumidity = value);
+                        _loadRelacionAcOptions(_selectedTemperature!, value);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    _FieldLabel(
+                      'Relación agua / cemento',
+                      error: _showSelectionErrors && _selectedRelacionAc == null,
+                    ),
+                    AppChoiceChips<double>(
+                      options: _availableRelacionesAc,
+                      selected: _selectedRelacionAc,
+                      labelBuilder: (r) => r.toStringAsFixed(2),
+                      emptyHint: 'Selecciona la humedad primero',
+                      onSelected: (value) {
+                        setState(() => _selectedRelacionAc = value);
+                        _loadAditivoOptions(_selectedTemperature!, _selectedHumidity!, value);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    const _FieldLabel('Aditivo', optional: true),
+                    AppChoiceChips<int>(
+                      options: _availableAditivos.map((a) => a['id'] as int).toList(),
+                      selected: _selectedAditivoId,
+                      labelBuilder: (id) => _availableAditivos
+                          .firstWhere((a) => a['id'] == id)['codigo'] as String,
+                      emptyHint: 'Selecciona la relación a/c primero',
+                      onSelected: (value) => setState(() => _selectedAditivoId = value),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    _FieldLabel(
+                      'Tipo de obra',
+                      error: _showSelectionErrors && _selectedWorkType == null,
+                    ),
+                    AppChoiceChips<String>(
+                      options: _workTypes.map((w) => w.$1).toList(),
+                      selected: _selectedWorkType,
+                      labelBuilder: (v) => _workTypes.firstWhere((w) => w.$1 == v).$2,
+                      onSelected: (value) => setState(() => _selectedWorkType = value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomActionBar(
+        children: [
+          Expanded(
+            child: AppButton.outline(
+              label: 'Volver',
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm + 4),
+          Expanded(
+            flex: 2,
+            child: AppButton(
+              label: 'Siguiente',
+              icon: Icons.arrow_forward_rounded,
+              loading: _submitting,
+              onPressed: _submitAndNavigateToDetails,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Widgets privados ──────────────────────────────────────────────────────
+
+class _FieldLabel extends StatelessWidget {
+  final String label;
+  final bool optional;
+  final bool error;
+
+  const _FieldLabel(this.label, {this.optional = false, this.error = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm + 2),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: error ? scheme.error : null,
+            ),
+          ),
+          if (optional) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Text('Opcional', style: theme.textTheme.labelSmall),
+          ],
+          if (error) ...[
+            const Spacer(),
+            Text(
+              'Requerido',
+              style: theme.textTheme.labelSmall?.copyWith(color: scheme.error),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ImagePickerTile extends StatelessWidget {
+  final File? image;
+  final VoidCallback onTap;
+
+  const _ImagePickerTile({required this.image, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final text = theme.textTheme;
+
+    return AppCard(
+      onTap: onTap,
+      padding: EdgeInsets.zero,
+      color: scheme.primaryContainer,
+      borderRadius: AppRadius.baseAll,
+      child: SizedBox(
+        height: 140,
+        width: double.infinity,
+        child: AnimatedSwitcher(
+          duration: AppMotion.normal,
+          child: image == null
+              ? Column(
+                  key: const ValueKey('empty'),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 32, color: scheme.primary),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Agregar imagen de portada',
+                      style: text.labelMedium?.copyWith(color: scheme.onPrimaryContainer),
+                    ),
+                  ],
+                )
+              : Stack(
+                  key: ValueKey(image!.path),
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(image!, fit: BoxFit.cover),
+                    Positioned(
+                      right: AppSpacing.sm,
+                      bottom: AppSpacing.sm,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm + 2, vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surface.withValues(alpha: 0.92),
+                          borderRadius: AppRadius.pillAll,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Imagen',
-                              style: TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50), fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              height: 60, // Reducir un poco la altura para que quepa mejor
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFBDC3C7)),
-                              ),
-                              child: _selectedImage == null
-                                  ? const Icon(Icons.add_a_photo, size: 30, color: Color(0xFF2C3E50))
-                                  : ClipRRect(
-                                      borderRadius: BorderRadius.circular(7),
-                                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                                    ),
-                            )
+                            Icon(Icons.edit_outlined, size: 14, color: scheme.onSurface),
+                            const SizedBox(width: AppSpacing.xs),
+                            Text('Cambiar', style: text.labelSmall?.copyWith(color: scheme.onSurface)),
                           ],
                         ),
                       ),
                     ),
                   ],
                 ),
-              ]),
-              const SizedBox(height: 20),
-              _buildSectionContainer([ // Sección de Propiedades Técnicas
-                const Text("Propiedades Técnicas", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _resistanceController,
-                  decoration: _inputDecoration(labelText: 'Resistencia objetivo (MPa) - Rango: 24-57'),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d{0,2}\.?\d{0,2}')),
-                  ],
-                  onChanged: (value) {
-                    final double? parsed = double.tryParse(value);
-                    setState(() => _selectedResistanceTarget = parsed);
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Campo requerido';
-                    final double? resistance = double.tryParse(value);
-                    if (resistance == null) return 'Ingrese un número válido';
-                    if (resistance < 24 || resistance > 57) return 'Debe estar entre 24 y 57 MPa';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  decoration: _inputDecoration(labelText: 'Temperatura (°C)'),
-                  value: _selectedTemperature,
-                  items: _availableTemperatures.map((temp) {
-                    String label;
-                    if (temp == 10) label = 'Baja (10°C)';
-                    else if (temp == 25) label = 'Ambiente (25°C)';
-                    else label = 'Alta (32°C)';
-                    return DropdownMenuItem(value: temp, child: Text(label));
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedTemperature = value);
-                      _loadHumidityOptions(value);
-                    }
-                  },
-                  validator: (value) => value == null ? 'Campo requerido' : null,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  decoration: _inputDecoration(labelText: 'Humedad relativa (%)'),
-                  value: _selectedHumidity,
-                  items: _availableHumidities.map((hum) {
-                    return DropdownMenuItem(value: hum, child: Text('$hum%'));
-                  }).toList(),
-                  onChanged: _selectedTemperature == null ? null : (value) {
-                    if (value != null) {
-                      setState(() => _selectedHumidity = value);
-                      _loadRelacionAcOptions(_selectedTemperature!, value);
-                    }
-                  },
-                  validator: (value) => value == null ? 'Campo requerido' : null,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<double>(
-                  decoration: _inputDecoration(labelText: 'Relación agua/cemento'),
-                  value: _selectedRelacionAc,
-                  items: _availableRelacionesAc.map((relacion) {
-                    return DropdownMenuItem(value: relacion, child: Text(relacion.toStringAsFixed(2)));
-                  }).toList(),
-                  onChanged: (_selectedTemperature == null || _selectedHumidity == null) ? null : (value) {
-                    if (value != null) {
-                      setState(() => _selectedRelacionAc = value);
-                      _loadAditivoOptions(_selectedTemperature!, _selectedHumidity!, value);
-                    }
-                  },
-                  validator: (value) => value == null ? 'Campo requerido' : null,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<int>(
-                  decoration: _inputDecoration(labelText: 'Aditivo (opcional)'),
-                  value: _selectedAditivoId,
-                  items: _availableAditivos.map((aditivo) {
-                    return DropdownMenuItem(
-                      value: aditivo['id'] as int,
-                      child: Text(aditivo['codigo'] as String),
-                    );
-                  }).toList(),
-                  onChanged: (_selectedTemperature == null || _selectedHumidity == null || _selectedRelacionAc == null) 
-                    ? null 
-                    : (value) => setState(() => _selectedAditivoId = value),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  decoration: _inputDecoration(labelText: 'Tipo de obra'),
-                  value: _selectedWorkType,
-                  items: const [
-                    DropdownMenuItem(value: 'Puentes', child: Text('Puentes')),
-                    DropdownMenuItem(value: 'Tuneles', child: Text('Tuneles')),
-                    DropdownMenuItem(value: 'Muros', child: Text('Muros de contención')),
-                  ],
-                  onChanged: (value) => setState(() => _selectedWorkType = value),
-                  validator: (value) => value == null ? 'Campo requerido' : null,
-                ),
-              ]),
-              const SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE67E22),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                    ),
-                    child: const Text('Volver'),
-                  ),
-                  ElevatedButton(
-                    onPressed: _submitAndNavigateToDetails,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF27AE60),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                    ),
-                    child: const Text('Siguiente'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
         ),
       ),
-    );
-  }
-
-  // Helper para crear contenedores de sección
-  Widget _buildSectionContainer(List<Widget> children) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBDC3C7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-
-  // Helper para la decoración de InputDecoration
-  InputDecoration _inputDecoration({required String labelText, IconData? prefixIcon}) {
-    return InputDecoration(
-      labelText: labelText,
-      labelStyle: const TextStyle(color: Color(0xFF2C3E50)),
-      prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: const Color(0xFF2C3E50)) : null,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFBDC3C7)),
-      ),
-      enabledBorder: OutlineInputBorder( // Borde cuando no está enfocado
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFBDC3C7)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF27AE60), width: 2),
-      ),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 12.0),
     );
   }
 }

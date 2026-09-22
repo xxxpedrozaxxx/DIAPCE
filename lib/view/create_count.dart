@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
-import 'hall.dart';
+import 'package:diapce_aplicationn/components/app_button.dart';
+import 'package:diapce_aplicationn/components/fade_slide_in.dart';
 import 'package:diapce_aplicationn/core/database_helper.dart';
+import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
+import 'package:flutter/material.dart';
 
 class Create extends StatefulWidget {
   const Create({super.key});
@@ -16,6 +18,7 @@ class _CreateState extends State<Create> {
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -30,10 +33,13 @@ class _CreateState extends State<Create> {
       final email = _emailController.text;
       final password = _passwordController.text;
       final dbHelper = DatabaseHelper();
+      setState(() => _loading = true);
       try {
         // Verificar si el usuario ya existe
         final existingUser = await dbHelper.getUserByEmailAndPassword(email, password);
+        if (!mounted) return;
         if (existingUser != null) {
+          setState(() => _loading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('El usuario ya existe. Usa otro correo.')),
           );
@@ -43,11 +49,14 @@ class _CreateState extends State<Create> {
           'email': email,
           'password': password,
         });
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Usuario registrado correctamente. Inicia sesión.')),
         );
         Navigator.pop(context); // Regresa a la pantalla de login
       } catch (e) {
+        if (!mounted) return;
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al registrar usuario: $e')),
         );
@@ -57,118 +66,165 @@ class _CreateState extends State<Create> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final text = theme.textTheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Crear Cuenta"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
+      body: SafeArea(
+        child: Center(
           child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: "Correo Electrónico",
-                    hintText: "ejemplo@correo.com",
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu correo electrónico';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return 'Ingresa un correo electrónico válido';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: "Contraseña",
-                    hintText: "Ingresa tu contraseña",
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xl,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FadeSlideIn(
+                      index: 0,
+                      child: Text('Crea tu cuenta.', style: text.displayMedium),
                     ),
-                    border: const OutlineInputBorder(),
-                  ),
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor ingresa tu contraseña';
-                    }
-                    if (value.length < 6) {
-                      return 'La contraseña debe tener al menos 6 caracteres';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  decoration: InputDecoration(
-                    labelText: "Confirmar Contraseña",
-                    hintText: "Confirma tu contraseña",
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                    const SizedBox(height: AppSpacing.sm),
+                    FadeSlideIn(
+                      index: 1,
+                      child: Text(
+                        'Guarda tus proyectos y consulta tus predicciones desde cualquier dispositivo.',
+                        style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
                     ),
-                    border: const OutlineInputBorder(),
-                  ),
-                  obscureText: _obscureConfirmPassword,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor confirma tu contraseña';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Las contraseñas no coinciden';
-                    }
-                    return null;
-                  },
+                    const SizedBox(height: AppSpacing.xl),
+                    FadeSlideIn(
+                      index: 2,
+                      child: TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Correo electrónico',
+                          hintText: 'ejemplo@correo.com',
+                          prefixIcon: Icon(Icons.mail_outline_rounded),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingresa tu correo electrónico';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                            return 'Ingresa un correo electrónico válido';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    FadeSlideIn(
+                      index: 3,
+                      child: TextFormField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Contraseña',
+                          hintText: 'Mínimo 6 caracteres',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingresa tu contraseña';
+                          }
+                          if (value.length < 6) {
+                            return 'La contraseña debe tener al menos 6 caracteres';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    FadeSlideIn(
+                      index: 4,
+                      child: TextFormField(
+                        controller: _confirmPasswordController,
+                        decoration: InputDecoration(
+                          labelText: 'Confirmar contraseña',
+                          hintText: 'Repite tu contraseña',
+                          prefixIcon: const Icon(Icons.lock_reset_rounded),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                        ),
+                        obscureText: _obscureConfirmPassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _submitForm(),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor confirma tu contraseña';
+                          }
+                          if (value != _passwordController.text) {
+                            return 'Las contraseñas no coinciden';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    FadeSlideIn(
+                      index: 5,
+                      child: AppButton(
+                        label: 'Crear cuenta',
+                        loading: _loading,
+                        onPressed: _submitForm,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    FadeSlideIn(
+                      index: 6,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '¿Ya tienes una cuenta?',
+                            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                          AppButton.text(
+                            label: 'Inicia sesión',
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _submitForm, // Llama a _submitForm al presionar el botón
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text(
-                    'Crear Cuenta',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    print("Volver a la pantalla de inicio de sesión");
-                  },
-                  child: const Text("¿Ya tienes una cuenta? Inicia sesión"),
-                ),
-              ],
+              ),
             ),
           ),
         ),

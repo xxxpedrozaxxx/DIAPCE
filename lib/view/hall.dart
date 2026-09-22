@@ -1,11 +1,19 @@
+import 'package:diapce_aplicationn/components/app_button.dart';
+import 'package:diapce_aplicationn/components/app_card.dart';
+import 'package:diapce_aplicationn/components/empty_state.dart';
+import 'package:diapce_aplicationn/components/fade_slide_in.dart';
+import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
 import 'package:diapce_aplicationn/main.dart';
-import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
-import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
 import 'package:diapce_aplicationn/services/project_service.dart';
+import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
+import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+/// Tag de Hero compartido entre la tarjeta del proyecto y su pantalla de detalle.
+String projectHeroTag(ProjectData project) =>
+    'project-image-${project.id ?? project.projectName}';
 
 class Hall extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -19,7 +27,6 @@ class _HallState extends State<Hall> {
   final ProjectService _projectService = ProjectService();
   final List<ProjectData> _projects = [];
   bool _isLoading = true;
-
 
   late int _userId;
 
@@ -45,16 +52,19 @@ class _HallState extends State<Hall> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error cargando proyectos: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error cargando proyectos: $e')));
       }
     }
   }
+
   void _navigateToCreateProject() async {
     final newProject = await Navigator.push<ProjectData>(
       context,
-      MaterialPageRoute(builder: (context) => CreateProjectScreen(userId: _userId)),
+      MaterialPageRoute(
+        builder: (context) => CreateProjectScreen(userId: _userId),
+      ),
     );
 
     if (newProject != null && mounted) {
@@ -64,85 +74,95 @@ class _HallState extends State<Hall> {
     }
   }
 
-  // MODIFICADO: Ahora navega a ViewExistingProjectScreen
   void _viewProjectDetails(ProjectData project) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ViewExistingProjectScreen(project: project, isNewProject: false,), // Pasa el objeto project completo
+        builder:
+            (context) => ViewExistingProjectScreen(
+              project: project,
+              isNewProject: false,
+            ),
       ),
     );
   }
 
   String _formatDateForCard(DateTime? date) {
     if (date == null) return 'Sin fecha';
-    return DateFormat('dd/MM/yy').format(date);
+    return DateFormat('dd/MM/yyyy').format(date);
   }
+
   void _handleLinkAction() {
-    print("Botón de Vincular/Acción presionado");
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Acción de vincular no implementada')),
     );
   }
 
+  void _logout() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const MainApp()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
   Future<void> _deleteProject(ProjectData project) async {
-    // Mostrar diálogo de confirmaciónha
+    final scheme = Theme.of(context).colorScheme;
     final bool? shouldDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Eliminar Proyecto'),
+          title: const Text('Eliminar proyecto'),
           content: Text(
-            '¿Estás seguro de que quieres eliminar el proyecto "${project.projectName}"?\n\nEsta acción no se puede deshacer.',
+            '¿Seguro que quieres eliminar "${project.projectName}"?\n\nEsta acción no se puede deshacer.',
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.md,
           ),
           actions: [
-            TextButton(
+            AppButton.text(
+              label: 'Cancelar',
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
             ),
-            TextButton(
+            AppButton(
+              label: 'Eliminar',
+              expand: false,
+              color: scheme.error,
               onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
-              child: const Text('Eliminar'),
             ),
           ],
         );
       },
     );
 
-    // Si el usuario confirmó la eliminación
     if (shouldDelete == true && project.id != null) {
       try {
         final success = await _projectService.deleteProject(project.id!);
-        
+
         if (success && mounted) {
           setState(() {
             _projects.removeWhere((p) => p.id == project.id);
           });
-          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Proyecto "${project.projectName}" eliminado exitosamente'),
-              backgroundColor: Colors.green,
+              content: Text('Proyecto "${project.projectName}" eliminado'),
             ),
           );
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error al eliminar el proyecto'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: const Text('Error al eliminar el proyecto'),
+              backgroundColor: scheme.error,
             ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text('Error: $e'), backgroundColor: scheme.error),
           );
         }
       }
@@ -151,209 +171,366 @@ class _HallState extends State<Hall> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final email = (widget.user['email'] ?? '') as String;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFECF0F1),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF2C3E50),
-              ),
-              child: Center(
-                child: Text(
-                  'Menú',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Color.fromARGB(255, 247, 1, 1)),
-              title: const Text('Salir', style: TextStyle(fontSize: 20)),
-              onTap: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MainApp()),
-                  (Route<dynamic> route) => false,
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+      drawer: _AppDrawer(email: email, onLogout: _logout),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2C3E50),
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
-        title: const Text('DIAPCE',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w900)),
-        centerTitle: true,
+        title: Text(
+          'DIAPCE',
+          style: text.titleMedium?.copyWith(letterSpacing: 3),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.link),
+            icon: const Icon(Icons.link_rounded),
             tooltip: 'Vincular',
             onPressed: _handleLinkAction,
           ),
+          const SizedBox(width: AppSpacing.sm),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Mis Proyectos",
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C3E50)),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16.0,
-                        mainAxisSpacing: 16.0,
-                        childAspectRatio: 0.75,
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.sm,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: FadeSlideIn(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Mis proyectos', style: text.displayMedium),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              _projects.isEmpty
+                                  ? 'Aún no tienes proyectos'
+                                  : '${_projects.length} ${_projects.length == 1 ? 'proyecto' : 'proyectos'} · mantén presionado para eliminar',
+                              style: text.bodySmall,
+                            ),
+                          ],
+                        ),
                       ),
-                      itemCount: _projects.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          // Tarjeta especial para crear nueva (borde hundido)
-                          return GestureDetector(
-                            onTap: _navigateToCreateProject,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: Colors.blueGrey.shade200, width: 2),
-                                boxShadow: [
-                                  // Borde hundido
-                                  BoxShadow(
-                                    color: Colors.white.withOpacity(0.8),
-                                    offset: const Offset(-2, -2),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                  BoxShadow(
-                                    color: Colors.blueGrey.shade100,
-                                    offset: const Offset(2, 2),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                    ),
+                  ),
+                  if (_projects.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.foundation_rounded,
+                        title: 'Empieza tu primer proyecto',
+                        message:
+                            'Define las condiciones de obra y obtén la predicción de resistencia a 7, 14 y 28 días.',
+                        action: AppButton(
+                          label: 'Crear proyecto',
+                          icon: Icons.add_rounded,
+                          expand: false,
+                          onPressed: _navigateToCreateProject,
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        0,
+                        AppSpacing.lg,
+                        AppSpacing.xl,
+                      ),
+                      sliver: SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 220,
+                              crossAxisSpacing: AppSpacing.md,
+                              mainAxisSpacing: AppSpacing.md,
+                              childAspectRatio: 0.74,
+                            ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          if (index == 0) {
+                            return FadeSlideIn(
+                              index: index,
+                              child: _NewProjectCard(
+                                onTap: _navigateToCreateProject,
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Icon(Icons.add, size: 48, color: Colors.blueGrey),
-                                  SizedBox(height: 12),
-                                  Text('Crear nueva', style: TextStyle(fontSize: 18, color: Colors.blueGrey)),
-                                ],
+                            );
+                          }
+                          final project = _projects[index - 1];
+                          return FadeSlideIn(
+                            index: index,
+                            child: _ProjectCard(
+                              project: project,
+                              number: index,
+                              dateLabel: _formatDateForCard(
+                                project.selectedDate,
                               ),
+                              onTap: () => _viewProjectDetails(project),
+                              onLongPress: () => _deleteProject(project),
                             ),
                           );
-                        }
-                        final project = _projects[index - 1];
-                        // Color azul claro igual a la primera tarjeta
-                        return GestureDetector(
-                          onTap: () => _viewProjectDetails(project),
-                          onLongPress: () => _deleteProject(project),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.blueGrey.shade200, width: 2),
-                              boxShadow: [
-                                // Borde elevado
-                                BoxShadow(
-                                  color: Colors.blueGrey.shade100,
-                                  offset: const Offset(-2, -2),
-                                  blurRadius: 4,
-                                  spreadRadius: 1,
-                                ),
-                                BoxShadow(
-                                  color: Colors.white.withOpacity(0.8),
-                                  offset: const Offset(2, 2),
-                                  blurRadius: 4,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              children: [
-                                // Número grande en la esquina superior izquierda
-                                Positioned(
-                                  top: 16,
-                                  left: 16,
-                                  child: Text(
-                                    (index).toString().padLeft(2, '0'),
-                                    style: const TextStyle(
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blueGrey,
-                                    ),
-                                  ),
-                                ),
-                                // Imagen principal (más abajo y más grande)
-                                Positioned(
-                                  top: 60,
-                                  left: 24,
-                                  right: 24,
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: project.selectedImage != null
-                                        ? Image.file(
-                                            project.selectedImage!,
-                                            height: 110,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                          )
-                                        : Container(
-                                            height: 110,
-                                            color: Colors.white,
-                                            child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                                          ),
-                                  ),
-                                ),
-                                // Nombre del proyecto
-                                Align(
-                                  alignment: Alignment.bottomCenter,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 24, left: 12, right: 12),
-                                    child: Text(
-                                      project.projectName,
-                                      textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 2,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                        color: Colors.blueGrey,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        }, childCount: _projects.length + 1),
+                      ),
+                    ),
+                ],
+              ),
+    );
+  }
+}
+
+// ── Widgets privados ──────────────────────────────────────────────────────
+
+class _ProjectCard extends StatelessWidget {
+  final ProjectData project;
+  final int number;
+  final String dateLabel;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _ProjectCard({
+    required this.project,
+    required this.number,
+    required this.dateLabel,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final text = theme.textTheme;
+
+    return AppCard(
+      padding: EdgeInsets.zero,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Hero(
+                  tag: projectHeroTag(project),
+                  child:
+                      project.selectedImage != null
+                          ? Image.file(
+                            project.selectedImage!,
+                            fit: BoxFit.cover,
+                          )
+                          : Container(
+                            color: scheme.primaryContainer,
+                            child: Icon(
+                              Icons.apartment_rounded,
+                              size: 44,
+                              color: scheme.primary.withValues(alpha: 0.6),
                             ),
                           ),
-                        );
-                      },
-                    ),
+                ),
+                Positioned(
+                  top: AppSpacing.sm + 2,
+                  left: AppSpacing.sm + 2,
+                  child: _Badge(
+                    label: number.toString().padLeft(2, '0'),
+                    background: scheme.surface.withValues(alpha: 0.92),
+                    foreground: scheme.onSurface,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm + 4,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  project.projectName,
+                  style: text.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  project.workType == null
+                      ? dateLabel
+                      : '${project.workType} · $dateLabel',
+                  style: text.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      project.resistanceTarget.toStringAsFixed(
+                        project.resistanceTarget % 1 == 0 ? 0 : 1,
+                      ),
+                      style: text.titleLarge?.copyWith(color: scheme.primary),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text('MPa objetivo', style: text.labelSmall),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NewProjectCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _NewProjectCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final text = theme.textTheme;
+
+    return AppCard(
+      onTap: onTap,
+      color: scheme.primaryContainer,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scheme.primary,
+            ),
+            child: Icon(Icons.add_rounded, color: scheme.onPrimary, size: 30),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Crear nuevo',
+            style: text.titleMedium?.copyWith(color: scheme.onPrimaryContainer),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Nueva mezcla',
+            style: text.bodySmall?.copyWith(
+              color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  const _Badge({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm + 2,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: AppRadius.pillAll,
+      ),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: foreground),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _AppDrawer extends StatelessWidget {
+  final String email;
+  final VoidCallback onLogout;
+
+  const _AppDrawer({required this.email, required this.onLogout});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final text = theme.textTheme;
+
+    return Drawer(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(AppRadius.base),
+                ),
+                child: Icon(
+                  Icons.person_rounded,
+                  color: scheme.onPrimary,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Tu cuenta', style: text.headlineSmall),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                email.isEmpty ? 'Usuario' : email,
+                style: text.bodySmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              const Divider(),
+              const SizedBox(height: AppSpacing.md),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                ),
+                leading: Icon(Icons.logout_rounded, color: scheme.error),
+                title: Text(
+                  'Cerrar sesión',
+                  style: text.titleMedium?.copyWith(color: scheme.error),
+                ),
+                onTap: onLogout,
+              ),
+              const Spacer(),
+              Text('DIAPCE · Diseño de mezclas', style: text.labelSmall),
+            ],
+          ),
         ),
       ),
     );
