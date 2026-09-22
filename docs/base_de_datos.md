@@ -1,14 +1,17 @@
 # Base de datos de DIAPCE
 
-Última actualización: 2025-11-05
-Versión de esquema: 4
-Motor: SQLite (usado vía `sqflite` en Flutter)
+Última actualización: 2026-09-21
+Versión de esquema: 5
+Motor: PostgreSQL 16 (servida por el backend Flask en `backend/`; modelos en `backend/app/models.py`, DDL exportado en `backend/schema.sql`)
+
+> Histórico: hasta la v4 la base de datos era SQLite embebida en la app Flutter (`sqflite`). En la v5 se migró a arquitectura cliente-servidor: la app consume la API REST y ya no abre ninguna base de datos local.
 
 ## Objetivo
-La base de datos local almacena usuarios, proyectos y un repositorio de resultados experimentales de concreto. Permite consultar promedios de resistencia (7, 14 y 28 días) en función de condiciones controladas (temperatura, humedad, relación a/c y aditivo) y asociarlos a proyectos por usuario.
+La base de datos almacena usuarios, proyectos y un repositorio de resultados experimentales de concreto. Permite consultar promedios de resistencia (7, 14 y 28 días) en función de condiciones controladas (temperatura, humedad, relación a/c y aditivo) y asociarlos a proyectos por usuario.
 
 ## Visión general de entidades
-- users: credenciales locales de usuario.
+- users: credenciales de usuario (contraseña con hash bcrypt).
+- tipos_estructura: clasificación de proyectos por tipo de estructura (Puentes, Túneles, Muros de contención).
 - projects: proyectos creados por cada usuario (incluye condiciones seleccionadas y predicciones).
 - materials, mixtures, mixture_materials: catálogo y composición de mezclas (funcionalidad existente).
 - tipos_aditivo, productos, aditivos: catálogo de aditivos (tipología, producto comercial y código).
@@ -32,9 +35,15 @@ Leyenda: `A >── B` = A 1─N B;  `(opcional)` = FK puede ser NULL
 ## Tablas y columnas
 
 ### users
-- id INTEGER PK AUTOINCREMENT
-- email TEXT NOT NULL UNIQUE
-- password TEXT NOT NULL
+- id SERIAL PK
+- email VARCHAR(255) NOT NULL UNIQUE
+- password_hash VARCHAR(255) NOT NULL  (bcrypt; nunca texto plano)
+- created_at TIMESTAMP NOT NULL
+
+### tipos_estructura
+- id SERIAL PK
+- codigo VARCHAR(32) NOT NULL UNIQUE  (Puentes, Tuneles, Muros)
+- nombre VARCHAR(64) NOT NULL
 
 ### materials
 - id INTEGER PK AUTOINCREMENT
@@ -52,8 +61,8 @@ Leyenda: `A >── B` = A 1─N B;  `(opcional)` = FK puede ser NULL
 - selected_date TEXT
 - selected_image_path TEXT
 - creator_name TEXT
-- work_type TEXT
-- resistance_target INTEGER NOT NULL
+- tipo_estructura_id INTEGER NOT NULL → tipos_estructura.id ON DELETE RESTRICT  (la API lo expone como `work_type`)
+- resistance_target REAL NOT NULL  CHECK (24 ≤ valor ≤ 57)
 - temperature INTEGER NOT NULL
 - humidity INTEGER NOT NULL
 - relacion_ac REAL NOT NULL
@@ -64,7 +73,7 @@ Leyenda: `A >── B` = A 1─N B;  `(opcional)` = FK puede ser NULL
 - mixture_id INTEGER → mixtures.id ON DELETE SET NULL
 - created_at TEXT DEFAULT CURRENT_TIMESTAMP
 
-Nota técnica: La app trata `resistance_target` como número con decimales (double) para admitir entradas como 27.46. SQLite lo tolera por su tipado dinámico aunque la affinity sea INTEGER. Recomendado migrar a REAL en una versión posterior para reflejar el uso real.
+Nota técnica: en v5 `resistance_target` ya es REAL (double precision) y `work_type` pasó de texto libre a FK sobre `tipos_estructura`.
 
 ### mixtures
 - id INTEGER PK AUTOINCREMENT
@@ -121,9 +130,9 @@ Nota técnica: La app trata `resistance_target` como número con decimales (doub
 - resultados_concreto: importados desde `lib/data/csv_datos_1.1.csv` (delimitador `;`).
 
 ## Carga del CSV (resumen de proceso)
-1) Se lee el asset `lib/data/csv_datos_1.1.csv` con `CsvToListConverter`.
+1) `backend/seed.py` lee `lib/data/csv_datos_1.1.csv` con el módulo `csv` de Python (delimitador `;`).
 2) Se omite la primera fila (encabezados).
-3) Se inserta con `batch` en `resultados_concreto` (mejor rendimiento).
+3) Se inserta en un solo `INSERT` multi-fila en `resultados_concreto` y se alinea la secuencia SERIAL.
 
 ## Consultas clave (usadas por la app)
 
@@ -180,18 +189,18 @@ FROM CalculoPromedios;
 - `projects.aditivo_id` es opcional (NULL) para permitir proyectos sin aditivo fijo.
 - Validación en UI: resistencia objetivo (24.00–57.00, hasta 2 decimales).
 - El índice `idx_busqueda_resistencia` es crítico para rendimiento en consultas por condiciones.
-- Afinidad de tipos de SQLite: permite almacenar reales en columnas con affinity INTEGER; se recomienda migrar `projects.resistance_target` a REAL en la próxima versión del esquema.
 
 ## Migraciones (histórico resumido)
 - v2: incorporación de materials, mixtures, mixture_materials y primera versión de projects.
 - v3: ajustes en projects (estructura textual inicial).
 - v4: nuevas tablas experimentales (tipos_aditivo, productos, aditivos, resultados_concreto), creación de índice, reestructuración de projects a campos numéricos y campos de predicción, carga del CSV.
+- v5: migración a PostgreSQL (cliente-servidor). Nueva tabla `tipos_estructura` y FK `projects.tipo_estructura_id`; `resistance_target` → REAL con CHECK; `users.password` → `password_hash` (bcrypt); FKs con ON DELETE aplicadas de forma nativa (ya no depende de `PRAGMA foreign_keys`). Esquema creado por SQLAlchemy (`backend/seed.py`).
 
 ## Extensiones futuras sugeridas
-- Migrar `resistance_target` a REAL (v5) y normalizar formatos de fecha.
+- Normalizar `selected_date` a tipo DATE.
 - Guardar conteo de muestras usadas para cada predicción en projects (columna opcional).
-- Añadir vistas materializadas/consultas preparadas si el dataset crece.
-- Tests de integridad y PRAGMA `foreign_keys = ON` al abrir la BD.
+- Endpoint para registrar nuevos ensayos de laboratorio en `resultados_concreto` (recalibración del modelo con datos nuevos).
+- Migraciones versionadas con Alembic en lugar de `create_all`.
 
 ---
-Documento generado para acompañar la app DIAPCE. Cualquier ajuste de esquema debe actualizarse aquí y en `lib/core/database_helper.dart`.
+Documento generado para acompañar la app DIAPCE. Cualquier ajuste de esquema debe actualizarse aquí, en `backend/app/models.py` y regenerar `backend/schema.sql` (`pg_dump --schema-only`).

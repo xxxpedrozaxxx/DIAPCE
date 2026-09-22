@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Acceso HTTP al backend Flask (10.0.2.2:5000 en emulador) -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
+        android:usesCleartextTraffic="true"
         android:label="diapce_aplicationn"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

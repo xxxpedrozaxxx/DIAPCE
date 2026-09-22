@@ -1,62 +1,54 @@
 // lib/services/project_service.dart
 
-import '../core/database_helper.dart';
+import '../core/api_client.dart';
 import '../models/project_data.dart';
 
+/// CRUD de proyectos contra `/api/projects`. El servidor filtra por el
+/// usuario del token, así que ya no hace falta pasar `userId`.
 class ProjectService {
-  final DatabaseHelper _db = DatabaseHelper();
+  final ApiClient _api = ApiClient();
 
-  // Crear un nuevo proyecto
-  Future<int> createProject(ProjectData project) async {
-    return await _db.insertProject(project.toMap());
+  Future<List<ProjectData>> getAllProjects() async {
+    final data = await _api.get('/api/projects');
+    return (data as List)
+        .map((e) => ProjectData.fromMap(e as Map<String, dynamic>))
+        .toList();
   }
 
-  // Obtener todos los proyectos
-  Future<List<ProjectData>> getAllProjects({int? userId}) async {
-    final maps = await _db.getProjects(userId: userId);
-    return maps.map((map) => ProjectData.fromMap(map)).toList();
-  }
-
-  // Obtener un proyecto por ID
   Future<ProjectData?> getProjectById(int id) async {
-    final map = await _db.getProjectById(id);
-    return map != null ? ProjectData.fromMap(map) : null;
-  }
-
-  // Actualizar un proyecto
-  Future<bool> updateProject(ProjectData project) async {
-    if (project.id == null) return false;
-    final result = await _db.updateProject(project.id!, project.toMap());
-    return result > 0;
-  }
-
-  // Eliminar un proyecto
-  Future<bool> deleteProject(int id) async {
-    final result = await _db.deleteProject(id);
-    return result > 0;
-  }
-
-  // Guardar un proyecto completo con su mezcla
-  Future<ProjectData?> saveCompleteProject(ProjectData project) async {
     try {
-      // Si el proyecto no tiene mixtureId, crear una mezcla de ejemplo
-      int? mixtureId = project.mixtureId;
-      if (mixtureId == null) {
-        mixtureId = await _db.createRandomExampleMixture(project.projectName);
-      }
-
-      // Crear el proyecto con el mixtureId
-      final projectWithMixture = project.copyWith(mixtureId: mixtureId);
-      final projectId = await createProject(projectWithMixture);
-
-      // Actualizar la mezcla para que referencie al proyecto
-      await _db.updateMixture(mixtureId, {'project_id': projectId});
-
-      // Retornar el proyecto con su ID asignado
-      return projectWithMixture.copyWith(id: projectId);
-    } catch (e) {
-      print('Error saving complete project: $e');
-      return null;
+      final data = await _api.get('/api/projects/$id');
+      return ProjectData.fromMap(data as Map<String, dynamic>);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
     }
+  }
+
+  /// Crea el proyecto. El servidor calcula las predicciones si no vienen y
+  /// genera la mezcla según tipo de estructura y resistencia objetivo
+  /// (antes: `saveCompleteProject` + `createRandomExampleMixture`).
+  Future<ProjectData> createProject(ProjectData project) async {
+    final data = await _api.post('/api/projects', body: _payload(project));
+    return ProjectData.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<ProjectData> updateProject(ProjectData project) async {
+    final data = await _api.put('/api/projects/${project.id}', body: _payload(project));
+    return ProjectData.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<bool> deleteProject(int id) async {
+    await _api.delete('/api/projects/$id');
+    return true;
+  }
+
+  /// Quita campos que la API marca como `dump_only` y los nulos.
+  static Map<String, dynamic> _payload(ProjectData p) {
+    final map = p.toMap()
+      ..remove('id')
+      ..remove('user_id');
+    map.removeWhere((_, v) => v == null);
+    return map;
   }
 }

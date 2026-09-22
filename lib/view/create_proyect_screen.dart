@@ -8,9 +8,10 @@ import 'package:diapce_aplicationn/components/app_choice_chips.dart';
 import 'package:diapce_aplicationn/components/bottom_action_bar.dart';
 import 'package:diapce_aplicationn/components/fade_slide_in.dart';
 import 'package:diapce_aplicationn/components/section_header.dart';
-import 'package:diapce_aplicationn/core/database_helper.dart';
+import 'package:diapce_aplicationn/core/api_client.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
+import 'package:diapce_aplicationn/services/experiment_service.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,14 +19,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 class CreateProjectScreen extends StatefulWidget {
-  final int userId;
-  const CreateProjectScreen({super.key, required this.userId});
+  const CreateProjectScreen({super.key});
 
   @override
   State<CreateProjectScreen> createState() => _CreateProjectScreenState();
 }
 
 class _CreateProjectScreenState extends State<CreateProjectScreen> {
+  final ExperimentService _experiments = ExperimentService();
+
   // Controladores de Date
   final TextEditingController _projectNameController = TextEditingController();
   final TextEditingController _creatorNameController = TextEditingController();
@@ -43,10 +45,10 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   String? _selectedWorkType;
 
   // Opciones disponibles para los selectores
-  final List<int> _availableTemperatures = [10, 25, 32];
+  List<int> _availableTemperatures = [];
   List<int> _availableHumidities = [];
   List<double> _availableRelacionesAc = [];
-  List<Map<String, dynamic>> _availableAditivos = [];
+  List<AditivoOption> _availableAditivos = [];
 
   static const List<(String value, String label)> _workTypes = [
     ('Puentes', 'Puentes'),
@@ -67,15 +69,28 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     _loadInitialData();
   }
 
+  /// Muestra el mensaje de la API (o de red) sin tumbar la pantalla.
+  Future<T?> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return null;
+    }
+  }
+
   Future<void> _loadInitialData() async {
-    // Cargar las opciones iniciales si es necesario
-    // Por ahora las temperaturas están hardcodeadas
+    // Las temperaturas con ensayos registrados vienen del servidor.
+    final temps = await _guard(_experiments.getTemperatures);
+    if (temps != null && mounted) setState(() => _availableTemperatures = temps);
   }
 
   // Método para cargar opciones de humedad cuando se selecciona temperatura
   Future<void> _loadHumidityOptions(int temperatura) async {
-    final db = DatabaseHelper();
-    final humedades = await db.getOpcionesHumedad(temperatura);
+    final humedades = await _guard(() => _experiments.getHumidityOptions(temperatura)) ?? [];
+    if (!mounted) return;
     setState(() {
       _availableHumidities = humedades;
       _selectedHumidity = null;
@@ -88,8 +103,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
   // Método para cargar opciones de relación a/c cuando se selecciona humedad
   Future<void> _loadRelacionAcOptions(int temperatura, int humedad) async {
-    final db = DatabaseHelper();
-    final relacionesAc = await db.getOpcionesRelacionAC(temperatura, humedad);
+    final relacionesAc =
+        await _guard(() => _experiments.getRelacionAcOptions(temperatura, humedad)) ?? [];
+    if (!mounted) return;
     setState(() {
       _availableRelacionesAc = relacionesAc;
       _selectedRelacionAc = null;
@@ -100,8 +116,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
   // Método para cargar opciones de aditivos cuando se selecciona relación a/c
   Future<void> _loadAditivoOptions(int temperatura, int humedad, double relacionAc) async {
-    final db = DatabaseHelper();
-    final aditivos = await db.getAditivosConCodigos(temperatura, humedad, relacionAc);
+    final aditivos =
+        await _guard(() => _experiments.getAditivoOptions(temperatura, humedad, relacionAc)) ?? [];
+    if (!mounted) return;
     setState(() {
       _availableAditivos = aditivos;
       _selectedAditivoId = null;
@@ -161,17 +178,17 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
     setState(() => _submitting = true);
 
-    // Calcular resistencias predichas basadas en los datos experimentales
-    final db = DatabaseHelper();
-    final resistencias = await db.getResistenciaPromedio(
-      temperatura: _selectedTemperature!,
-      humedad: _selectedHumidity!,
-      relacionAc: _selectedRelacionAc!,
-      aditivoId: _selectedAditivoId ?? 1, // Si no se seleccionó aditivo, usar el primero
-    );
+    // El modelo matemático corre en el servidor (/api/experiments/predict).
+    final prediccion = await _guard(() => _experiments.predict(
+          temperatura: _selectedTemperature!,
+          humedad: _selectedHumidity!,
+          relacionAc: _selectedRelacionAc!,
+          aditivoId: _selectedAditivoId ?? 1, // P0 (control) si no se eligió aditivo
+        ));
 
     if (!mounted) return;
     setState(() => _submitting = false);
+    if (prediccion == null) return;
 
     // Navega a ViewExistingProjectScreen con isNewProject=true
     final projectDataFromDetails = await Navigator.push<ProjectData>(
@@ -179,7 +196,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       MaterialPageRoute(
         builder: (context) => ViewExistingProjectScreen(
           project: ProjectData(
-            userId: widget.userId,
             projectName: _projectNameController.text,
             selectedDate: _selectedDate,
             selectedImage: _selectedImage,
@@ -190,9 +206,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
             humidity: _selectedHumidity!,
             relacionAc: _selectedRelacionAc!,
             aditivoId: _selectedAditivoId,
-            resistenciaPredicha7d: resistencias['dias_7'],
-            resistenciaPredicha14d: resistencias['dias_14'],
-            resistenciaPredicha28d: resistencias['dias_28'],
+            resistenciaPredicha7d: prediccion.dias7,
+            resistenciaPredicha14d: prediccion.dias14,
+            resistenciaPredicha28d: prediccion.dias28,
           ),
           isNewProject: true,
         ),
@@ -392,10 +408,12 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                     const _FieldLabel('Aditivo', optional: true),
                     AppChoiceChips<int>(
-                      options: _availableAditivos.map((a) => a['id'] as int).toList(),
+                      options: _availableAditivos.map((a) => a.id).toList(),
                       selected: _selectedAditivoId,
-                      labelBuilder: (id) => _availableAditivos
-                          .firstWhere((a) => a['id'] == id)['codigo'] as String,
+                      labelBuilder: (id) =>
+                          _availableAditivos.firstWhere((a) => a.id == id).codigo,
+                      captionBuilder: (id) =>
+                          _availableAditivos.firstWhere((a) => a.id == id).porcentaje,
                       emptyHint: 'Selecciona la relación a/c primero',
                       onSelected: (value) => setState(() => _selectedAditivoId = value),
                     ),

@@ -9,14 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  image_picker: ^1.0.4   # <-- Aquí agregamos image_picker
+  image_picker: ^1.0.4
   intl: ^0.20.2
-  sqflite: ^2.2.0
-  path: ^1.8.3
-  fl_chart: ^0.68.0      # Para gráficas de pastel
-  csv: ^6.0.0            # Para leer datos experimentales
-  sqflite_common_ffi: ^2.3.3
+  fl_chart: ^0.68.0             # Gráficas (pastel y línea)
   google_fonts: ^8.2.1
+  http: ^1.2.2                  # Cliente REST hacia el backend Flask
+  shared_preferences: ^2.3.3     # Token JWT (flutter_secure_storage requiere ATL en Windows)
 
 dev_dependencies:
   flutter_test:
@@ -25,5 +23,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - lib/data/csv_datos_1.1.csv

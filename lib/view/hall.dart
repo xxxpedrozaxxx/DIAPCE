@@ -3,11 +3,12 @@ import 'package:diapce_aplicationn/components/app_card.dart';
 import 'package:diapce_aplicationn/components/empty_state.dart';
 import 'package:diapce_aplicationn/components/fade_slide_in.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
-import 'package:diapce_aplicationn/main.dart';
+import 'package:diapce_aplicationn/services/auth_service.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/services/project_service.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
+import 'package:diapce_aplicationn/view/main_login.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -28,18 +29,15 @@ class _HallState extends State<Hall> {
   final List<ProjectData> _projects = [];
   bool _isLoading = true;
 
-  late int _userId;
-
   @override
   void initState() {
     super.initState();
-    _userId = widget.user['id'];
     _loadProjects();
   }
 
   Future<void> _loadProjects() async {
     try {
-      final projects = await _projectService.getAllProjects(userId: _userId);
+      final projects = await _projectService.getAllProjects();
       if (mounted) {
         setState(() {
           _projects.clear();
@@ -63,7 +61,7 @@ class _HallState extends State<Hall> {
     final newProject = await Navigator.push<ProjectData>(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateProjectScreen(userId: _userId),
+        builder: (context) => const CreateProjectScreen(),
       ),
     );
 
@@ -98,10 +96,12 @@ class _HallState extends State<Hall> {
     );
   }
 
-  void _logout() {
+  Future<void> _logout() async {
+    await AuthService().logout();
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const MainApp()),
+      MaterialPageRoute(builder: (context) => const MainLogin()),
       (Route<dynamic> route) => false,
     );
   }

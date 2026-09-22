@@ -1,9 +1,10 @@
 // view/main_login.dart
 import 'package:diapce_aplicationn/components/app_button.dart';
 import 'package:diapce_aplicationn/components/fade_slide_in.dart';
-import 'package:diapce_aplicationn/core/database_helper.dart';
+import 'package:diapce_aplicationn/core/api_client.dart';
 import 'package:diapce_aplicationn/core/theme/app_colors.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
+import 'package:diapce_aplicationn/services/auth_service.dart';
 import 'package:diapce_aplicationn/view/create_count.dart';
 import 'package:diapce_aplicationn/view/hall.dart';
 import 'package:flutter/material.dart';
@@ -33,20 +34,20 @@ class _MainLoginState extends State<MainLogin> {
   void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _loading = true);
-      final email = _emailController.text;
+      final email = _emailController.text.trim();
       final password = _passwordController.text;
-      final dbHelper = DatabaseHelper();
-      final user = await dbHelper.getUserByEmailAndPassword(email, password);
-      if (!mounted) return;
-      setState(() => _loading = false);
-      if (user != null) {
+      try {
+        final user = await AuthService().login(email, password);
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Hall(user: user)),
+          MaterialPageRoute(builder: (context) => Hall(user: user.toMap())),
         );
-      } else {
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Correo o contraseña incorrectos')),
+          SnackBar(content: Text(e.message)),
         );
       }
     }

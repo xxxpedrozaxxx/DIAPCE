@@ -1,7 +1,9 @@
 import 'package:diapce_aplicationn/components/app_button.dart';
 import 'package:diapce_aplicationn/components/fade_slide_in.dart';
-import 'package:diapce_aplicationn/core/database_helper.dart';
+import 'package:diapce_aplicationn/core/api_client.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
+import 'package:diapce_aplicationn/services/auth_service.dart';
+import 'package:diapce_aplicationn/view/hall.dart';
 import 'package:flutter/material.dart';
 
 class Create extends StatefulWidget {
@@ -30,35 +32,26 @@ class _CreateState extends State<Create> {
 
   void _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final email = _emailController.text;
+      final email = _emailController.text.trim();
       final password = _passwordController.text;
-      final dbHelper = DatabaseHelper();
       setState(() => _loading = true);
       try {
-        // Verificar si el usuario ya existe
-        final existingUser = await dbHelper.getUserByEmailAndPassword(email, password);
-        if (!mounted) return;
-        if (existingUser != null) {
-          setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('El usuario ya existe. Usa otro correo.')),
-          );
-          return;
-        }
-        await dbHelper.insertUser({
-          'email': email,
-          'password': password,
-        });
+        // El servidor rechaza correos duplicados (409) y guarda el hash.
+        final user = await AuthService().register(email, password);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuario registrado correctamente. Inicia sesión.')),
+          const SnackBar(content: Text('Usuario registrado correctamente.')),
         );
-        Navigator.pop(context); // Regresa a la pantalla de login
-      } catch (e) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => Hall(user: user.toMap())),
+          (route) => false,
+        );
+      } on ApiException catch (e) {
         if (!mounted) return;
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al registrar usuario: $e')),
+          SnackBar(content: Text(e.message)),
         );
       }
     }

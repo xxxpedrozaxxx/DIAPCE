@@ -1,6 +1,5 @@
 // lib/models/mixture.dart
 
-import 'material.dart';
 
 class Mixture {
   final int? id;

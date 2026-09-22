@@ -5,7 +5,7 @@ import 'package:diapce_aplicationn/components/bottom_action_bar.dart';
 import 'package:diapce_aplicationn/components/fade_slide_in.dart';
 import 'package:diapce_aplicationn/components/section_header.dart';
 import 'package:diapce_aplicationn/components/stat_tile.dart';
-import 'package:diapce_aplicationn/core/database_helper.dart';
+import 'package:diapce_aplicationn/core/api_client.dart';
 import 'package:diapce_aplicationn/core/theme/app_colors.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
 import 'package:diapce_aplicationn/models/mixture.dart';
@@ -47,54 +47,25 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
   }
 
   Future<void> _loadMixtureData() async {
-    if (_currentProject.mixtureId != null) {
-      try {
-        final mixture = await _mixtureService.getMixtureWithMaterials(
-          _currentProject.mixtureId!,
-        );
-        if (mixture != null && mounted) {
-          setState(() {
-            _materials = mixture.materials ?? [];
-            _isLoading = false;
-          });
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    } else {
-      // Crear una instancia local de DatabaseHelper
-      final dbHelper = DatabaseHelper();
-      final mixtureId = await dbHelper.createRandomExampleMixture(
-        _currentProject.projectName,
-      );
-
-      // Actualizar el proyecto actual con el nuevo mixtureId
+    try {
+      // Proyecto guardado: su mezcla ya existe en el servidor. Proyecto
+      // nuevo: el servidor propone la composición según tipo de estructura y
+      // resistencia objetivo, sin persistir nada hasta "Guardar".
+      final mixture = _currentProject.mixtureId != null
+          ? await _mixtureService.getMixtureWithMaterials(_currentProject.mixtureId!)
+          : await _mixtureService.previewMixture(
+              _currentProject.workType ?? 'Muros',
+              _currentProject.resistanceTarget,
+            );
+      if (!mounted) return;
       setState(() {
-        _currentProject = _currentProject.copyWith(mixtureId: mixtureId);
+        _materials = mixture?.materials ?? [];
+        _isLoading = false;
       });
-
-      // Cargar los materiales de la mezcla recién creada
-      try {
-        final mixture = await _mixtureService.getMixtureWithMaterials(
-          mixtureId,
-        );
-        if (mixture != null && mounted) {
-          setState(() {
-            _materials = mixture.materials ?? [];
-            _isLoading = false;
-          });
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -102,33 +73,20 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
     final scheme = Theme.of(context).colorScheme;
     setState(() => _saving = true);
     try {
-      // Guardar el proyecto con su mezcla en la base de datos
-      final savedProject = await _projectService.saveCompleteProject(_currentProject);
-
-      if (savedProject != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Proyecto guardado exitosamente')),
-        );
-        // Retornar el proyecto guardado a la pantalla anterior
-        Navigator.pop(context, savedProject);
-      } else {
-        if (mounted) {
-          setState(() => _saving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Error al guardar el proyecto'),
-              backgroundColor: scheme.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: scheme.error),
-        );
-      }
+      // POST /api/projects: el servidor guarda el proyecto y crea su mezcla.
+      final savedProject = await _projectService.createProject(_currentProject);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Proyecto guardado exitosamente')),
+      );
+      // Retornar el proyecto guardado a la pantalla anterior
+      Navigator.pop(context, savedProject);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: scheme.error),
+      );
     }
   }
 
