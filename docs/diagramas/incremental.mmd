@@ -1,0 +1,12 @@
+flowchart TB
+  R["Análisis de<br/>requerimientos<br/>y de los datos"] --> D["Diseño de la<br/>arquitectura, BD<br/>y API (UML)"]
+  D --> I1
+  subgraph INC["Incrementos (cada uno: análisis → diseño detallado → implementación → pruebas)"]
+    direction LR
+    I1["Incremento 1<br/>Base de datos<br/>PostgreSQL<br/>(OE1)"] --> I2["Incremento 2<br/>Backend Flask<br/>y API REST<br/>(OE2)"]
+    I2 --> I3["Incremento 3<br/>Visualización:<br/>dispersión, ANOVA,<br/>rangos (OE3)"]
+    I3 --> I4["Incremento 4<br/>Registro, calibración<br/>y optimización<br/>(OE4 y general)"]
+  end
+  I4 --> V["Pruebas de sistema<br/>y validación<br/>(E2E, rendimiento,<br/>modelo, usabilidad)"]
+  V --> E["Despliegue y<br/>documentación<br/>(manuales, README)"]
+  V -. "retroalimentación" .-> I1
