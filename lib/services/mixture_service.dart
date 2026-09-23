@@ -18,11 +18,16 @@ class MixtureService {
     }
   }
 
-  /// Composición que el servidor asignaría a un proyecto nuevo (sin guardar).
-  Future<Mixture> previewMixture(String workType, double resistanceTarget) async {
+  /// Dosificación ACI 211.1 que el servidor asignaría a un proyecto nuevo
+  /// (sin guardar), según la relación a/c, el aditivo y el tipo de estructura.
+  Future<Mixture> previewMixture(String workType, double relacionAc, int? aditivoId) async {
     final data = await _api.get(
       '/api/mixtures/preview',
-      query: {'work_type': workType, 'resistance_target': resistanceTarget},
+      query: {
+        'work_type': workType,
+        'relacion_ac': relacionAc,
+        if (aditivoId != null) 'aditivo_id': aditivoId,
+      },
     );
     return _withMaterials(data as Map<String, dynamic>);
   }

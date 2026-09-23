@@ -43,6 +43,9 @@ class ProjectService {
     return true;
   }
 
+  /// Reporte PDF del proyecto (condiciones, predicción, curva y dosificación).
+  Future<List<int>> downloadReport(int id) => _api.getBytes('/api/projects/$id/report');
+
   /// Quita campos que la API marca como `dump_only` y los nulos.
   static Map<String, dynamic> _payload(ProjectData p) {
     final map = p.toMap()

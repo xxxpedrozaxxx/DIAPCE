@@ -11,9 +11,13 @@ import 'package:diapce_aplicationn/components/fade_slide_in.dart';
 import 'package:diapce_aplicationn/components/section_header.dart';
 import 'package:diapce_aplicationn/components/stat_tile.dart';
 import 'package:diapce_aplicationn/core/api_client.dart';
+import 'package:diapce_aplicationn/core/estructuras.dart';
 import 'package:diapce_aplicationn/core/theme/app_colors.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
 import 'package:diapce_aplicationn/services/experiment_service.dart';
+import 'package:diapce_aplicationn/view/analysis_calibration_tab.dart';
+import 'package:diapce_aplicationn/view/analysis_compare_tab.dart';
+import 'package:diapce_aplicationn/view/analysis_optimize_tab.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -53,7 +57,7 @@ class AnalysisScreen extends StatelessWidget {
   /// Resistencia objetivo con la que abre la pestaña de rangos óptimos.
   final double? initialTarget;
 
-  /// 0 = dispersión, 1 = rangos óptimos.
+  /// 0 = dispersión, 1 = rangos óptimos, 2 = optimizar, 3 = comparar, 4 = calibración.
   final int initialTab;
 
   const AnalysisScreen({super.key, this.initialTarget, this.initialTab = 0});
@@ -61,15 +65,20 @@ class AnalysisScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 5,
       initialIndex: initialTab,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Análisis de laboratorio'),
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(icon: Icon(Icons.scatter_plot_rounded), text: 'Dispersión'),
               Tab(icon: Icon(Icons.tune_rounded), text: 'Rangos óptimos'),
+              Tab(icon: Icon(Icons.auto_fix_high_rounded), text: 'Optimizar'),
+              Tab(icon: Icon(Icons.compare_arrows_rounded), text: 'Comparar'),
+              Tab(icon: Icon(Icons.model_training_rounded), text: 'Calibración'),
             ],
           ),
         ),
@@ -77,6 +86,9 @@ class AnalysisScreen extends StatelessWidget {
           children: [
             const _DispersionTab(),
             _OptimalRangesTab(initialTarget: initialTarget ?? 45),
+            const OptimizeTab(),
+            const CompareTab(),
+            const CalibrationTab(),
           ],
         ),
       ),
@@ -101,7 +113,9 @@ class _DispersionTabState extends State<_DispersionTab>
   int _edad = 28;
   String? _tipo; // null = todos los aditivos
   List<String> _tipos = [];
+  String? _estructura; // null = todas
   Dispersion? _data;
+  Anova? _anova;
   bool _loading = true;
   String? _error;
 
@@ -124,7 +138,12 @@ class _DispersionTabState extends State<_DispersionTab>
         variable: _variable.key,
         edadDias: _edad,
         tipoAditivo: _tipo,
+        tipoEstructura: _estructura,
       );
+      // La ANOVA usa todos los ensayos de la edad elegida (sin filtros).
+      if (_anova?.edadDias != _edad) {
+        _anova = await _experiments.anova(edadDias: _edad);
+      }
       if (!mounted) return;
       setState(() {
         _data = data;
@@ -196,6 +215,14 @@ class _DispersionTabState extends State<_DispersionTab>
             labelBuilder: (t) => t ?? 'Todos',
             onSelected: (t) {
               setState(() => _tipo = t);
+              _load();
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _EstructuraFilter(
+            selected: _estructura,
+            onSelected: (e) {
+              setState(() => _estructura = e);
               _load();
             },
           ),
@@ -314,6 +341,16 @@ class _DispersionTabState extends State<_DispersionTab>
                 ),
               ),
             ),
+            if (_anova != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              SectionHeader(
+                title: 'Análisis de varianza (ANOVA)',
+                subtitle: 'Efecto de cada factor en la resistencia a $_edad días (${_anova!.n} ensayos)',
+                titleStyle: text.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _AnovaTable(anova: _anova!),
+            ],
           ],
         ],
       ),
@@ -346,7 +383,10 @@ class _ScatterPlot extends StatelessWidget {
     final minX = xs.reduce((a, b) => a < b ? a : b);
     final maxX = xs.reduce((a, b) => a > b ? a : b);
     final span = maxX - minX == 0 ? 1.0 : maxX - minX;
-    final pad = span * 0.1;
+    // Margen en múltiplos del paso del eje: así las marcas del eje X caen
+    // exactamente sobre los valores ensayados.
+    final step = variable.axisStep;
+    final pad = ((span * 0.1) / step).ceil() * step;
     // Desplazamiento horizontal pequeño y determinista para que los ensayos
     // con el mismo valor no queden uno encima de otro.
     final jitter = span * 0.018;
@@ -380,7 +420,12 @@ class _ScatterPlot extends StatelessWidget {
         ),
     ];
 
-    bool isTick(double value) => xs.any((x) => (x - value).abs() < variable.axisStep / 2);
+    double? tickValue(double value) {
+      for (final x in xs) {
+        if ((x - value).abs() < step * 0.1) return x;
+      }
+      return null;
+    }
 
     return ScatterChart(
       ScatterChartData(
@@ -414,8 +459,8 @@ class _ScatterPlot extends StatelessWidget {
               interval: variable.axisStep,
               reservedSize: 28,
               getTitlesWidget: (value, meta) {
-                if (!isTick(value)) return const SizedBox.shrink();
-                final x = xs.firstWhere((x) => (x - value).abs() < variable.axisStep / 2);
+                final x = tickValue(value);
+                if (x == null) return const SizedBox.shrink();
                 return SideTitleWidget(
                   axisSide: meta.axisSide,
                   child: Text(variable.format(x), style: axisStyle),
@@ -454,6 +499,7 @@ class _OptimalRangesTabState extends State<_OptimalRangesTab>
   final ExperimentService _experiments = ExperimentService();
 
   late double _target = widget.initialTarget.clamp(24, 57).roundToDouble();
+  String? _estructura; // null = todas
   OptimalRanges? _data;
   bool _loading = true;
   String? _error;
@@ -473,7 +519,7 @@ class _OptimalRangesTabState extends State<_OptimalRangesTab>
       _error = null;
     });
     try {
-      final data = await _experiments.optimalRanges(_target);
+      final data = await _experiments.optimalRanges(_target, tipoEstructura: _estructura);
       if (!mounted) return;
       setState(() {
         _data = data;
@@ -532,6 +578,13 @@ class _OptimalRangesTabState extends State<_OptimalRangesTab>
                 label: '${_target.toStringAsFixed(0)} MPa',
                 onChanged: (v) => setState(() => _target = v),
                 onChangeEnd: (_) => _load(),
+              ),
+              _EstructuraFilter(
+                selected: _estructura,
+                onSelected: (e) {
+                  setState(() => _estructura = e);
+                  _load();
+                },
               ),
             ],
           ),
@@ -695,6 +748,86 @@ class _OptimalRangesTabState extends State<_OptimalRangesTab>
 }
 
 // ── Widgets privados ──────────────────────────────────────────────────────
+
+/// Tabla ANOVA: F, p y η² parcial por factor; resalta los efectos significativos.
+class _AnovaTable extends StatelessWidget {
+  final Anova anova;
+  const _AnovaTable({required this.anova});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    String p(double? v) => v == null ? '—' : (v < 0.001 ? '< 0,001' : v.toStringAsFixed(3).replaceAll('.', ','));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columnSpacing: 16,
+              headingRowHeight: 40,
+              headingTextStyle: text.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+              columns: const [
+                DataColumn(label: Text('Fuente')),
+                DataColumn(label: Text('gl'), numeric: true),
+                DataColumn(label: Text('F'), numeric: true),
+                DataColumn(label: Text('p'), numeric: true),
+                DataColumn(label: Text('η² parcial'), numeric: true),
+              ],
+              rows: [
+                for (final f in anova.filas)
+                  DataRow(cells: [
+                    DataCell(Text(f.fuente,
+                        style: f.significativo ? const TextStyle(fontWeight: FontWeight.w700) : null)),
+                    DataCell(Text('${f.gl}')),
+                    DataCell(Text(_num(f.f, 1))),
+                    DataCell(Text(p(f.p))),
+                    DataCell(Text(_num(f.eta2Parcial, 3))),
+                  ]),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Sumas de cuadrados tipo II (diseño desbalanceado). En negrita, efectos significativos (p < 0,05). '
+          'η² parcial indica la proporción de la variación que explica cada factor. R² del modelo: '
+          '${_num(anova.r2, 3)}.',
+          style: text.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+/// Filtro por tipo de estructura (los ensayos históricos no están clasificados).
+class _EstructuraFilter extends StatelessWidget {
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  const _EstructuraFilter({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Tipo de estructura', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: AppSpacing.sm),
+        AppChoiceChips<String?>(
+          options: filtrosEstructura,
+          selected: selected,
+          labelBuilder: filtroEstructuraLabel,
+          onSelected: onSelected,
+        ),
+      ],
+    );
+  }
+}
 
 class _RangeRow extends StatelessWidget {
   final IconData icon;

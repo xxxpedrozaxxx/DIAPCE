@@ -1,0 +1,30 @@
+flowchart TB
+  subgraph C["Capa de presentación · Cliente Flutter (Android / Windows)"]
+    direction LR
+    V["Vistas<br/>login · proyectos · ensayos<br/>análisis · calibración"]
+    S["Servicios<br/>AuthService · ProjectService<br/>ExperimentService · MixtureService"]
+    AC["ApiClient<br/>HTTP + token JWT"]
+    V --> S --> AC
+  end
+
+  subgraph SV["Capa de lógica · Servidor Python (Flask)"]
+    direction LR
+    R["API REST · flask-smorest<br/>/api/auth · /api/projects · /api/mixtures<br/>/api/experiments · /api/experiments/results<br/>/api/catalog · Swagger /api/docs"]
+    SEC["Seguridad<br/>bcrypt · flask-jwt-extended"]
+    M["Modelos matemáticos · analysis.py<br/>predicción f(t)=a+b·ln(t) · rangos óptimos<br/>dispersión · calibración y validación LOO"]
+    IMP["Importación CSV · importer.py"]
+    ORM["SQLAlchemy (ORM) + marshmallow"]
+    R --> SEC
+    R --> M
+    R --> IMP
+    M --> ORM
+    IMP --> ORM
+    R --> ORM
+  end
+
+  subgraph DB["Capa de datos"]
+    PG[("PostgreSQL 18<br/>11 tablas · FK · CHECK · índices")]
+  end
+
+  AC -- "HTTP · JSON<br/>Authorization: Bearer" --> R
+  ORM -- "psycopg2 · SQL" --> PG

@@ -13,9 +13,16 @@ Se ejecuta en el servidor sobre la tabla `resultados_concreto`:
 3. `dispersion`        — ensayos individuales de resistencia vs. una variable
    (temperatura, humedad, a/c o cantidad de aditivo) y tabla de dispersión
    por valor: n, promedio, desviación, coeficiente de variación, min, max.
-4. `calibration`      — mide el error del modelo (MAE, RMSE, R²) contra los
-   ensayos reales para cada combinación; sirve para retroalimentar/calibrar
-   el modelo con nuevos datos de laboratorio.
+4. `calibration`      — mide el error del modelo contra los ensayos reales:
+   error de ajuste (MAE, RMSE, R²) y error de validación cruzada dejando un
+   cilindro fuera (MAE, RMSE, MAPE por edad), comparado con el modelo base
+   de promedio por edad. `save_calibration` guarda cada ejecución para ver
+   cómo evoluciona el error a medida que se registran ensayos nuevos
+   (retroalimentación del modelo).
+
+`optimal_ranges` y `dispersion` aceptan filtrar por tipo de estructura
+(código de `tipos_estructura`, o `sin_clasificar` para los ensayos
+históricos que no lo tienen).
 
 Solo usa la librería estándar (math/statistics) para mantener el backend
 liviano; el volumen de datos (~1.900 filas) no justifica numpy.
@@ -29,13 +36,26 @@ from collections import defaultdict
 from sqlalchemy import func, select
 
 from .extensions import db
-from .models import Aditivo, ResultadoConcreto, TipoAditivo
+from .models import Aditivo, Calibracion, ResultadoConcreto, TipoAditivo, TipoEstructura
 
 AGES_ESTIMATE = (3, 7, 14, 21, 28, 56, 90)
 
 # Variables experimentales que se pueden graficar en el eje X de la dispersión.
 DISPERSION_VARIABLES = ("temperatura", "humedad", "relacion_ac", "porcentaje_aditivo")
 CONTROL_LABEL = "Sin aditivo"
+SIN_CLASIFICAR = "sin_clasificar"
+
+
+def _estructura_filter(stmt, tipo_estructura: str | None):
+    """Restringe una consulta sobre resultados_concreto a un tipo de estructura."""
+    if not tipo_estructura:
+        return stmt
+    if tipo_estructura == SIN_CLASIFICAR:
+        return stmt.where(ResultadoConcreto.tipo_estructura_id.is_(None))
+    tipo_id = (
+        select(TipoEstructura.id).where(TipoEstructura.codigo == tipo_estructura).scalar_subquery()
+    )
+    return stmt.where(ResultadoConcreto.tipo_estructura_id == tipo_id)
 
 
 # ── Utilidades numéricas ────────────────────────────────────────────────
@@ -149,9 +169,9 @@ def predict_strength(temperatura: int, humedad: int, relacion_ac: float, aditivo
 
 
 # ── 2. Rangos óptimos ───────────────────────────────────────────────────
-def optimal_ranges(resistencia_objetivo: float) -> dict:
+def optimal_ranges(resistencia_objetivo: float, tipo_estructura: str | None = None) -> dict:
     """Combinaciones cuyo promedio a 28 días ≥ objetivo y rango de cada variable."""
-    stmt = (
+    stmt = _estructura_filter((
         select(
             ResultadoConcreto.temperatura,
             ResultadoConcreto.humedad,
@@ -175,7 +195,7 @@ def optimal_ranges(resistencia_objetivo: float) -> dict:
             Aditivo.porcentaje_aplicado,
             TipoAditivo.nombre,
         )
-    )
+    ), tipo_estructura)
     todas = db.session.execute(stmt).all()
     cumplen = [c for c in todas if c.promedio >= resistencia_objetivo]
 
@@ -197,6 +217,7 @@ def optimal_ranges(resistencia_objetivo: float) -> dict:
     mejores = sorted(cumplen, key=lambda c: c.promedio, reverse=True)[:10]
     return {
         "resistencia_objetivo": resistencia_objetivo,
+        "tipo_estructura": tipo_estructura,
         "total_combinaciones": len(todas),
         "combinaciones_que_cumplen": len(cumplen),
         "rangos": rangos,
@@ -222,7 +243,12 @@ def optimal_ranges(resistencia_objetivo: float) -> dict:
 
 
 # ── 3. Dispersión ───────────────────────────────────────────────────────
-def dispersion(variable: str, edad_dias: int, tipo_aditivo: str | None = None) -> dict:
+def dispersion(
+    variable: str,
+    edad_dias: int,
+    tipo_aditivo: str | None = None,
+    tipo_estructura: str | None = None,
+) -> dict:
     """Ensayos individuales (resistencia vs. una variable) y tabla de dispersión.
 
     Por cada valor de la variable: n, promedio, desviación estándar, coeficiente
@@ -230,19 +256,22 @@ def dispersion(variable: str, edad_dias: int, tipo_aditivo: str | None = None) -
     entre la variable y la resistencia.
     """
     rows = db.session.execute(
-        select(
-            ResultadoConcreto.temperatura,
-            ResultadoConcreto.humedad,
-            ResultadoConcreto.relacion_ac,
-            ResultadoConcreto.resistencia_mpa,
-            Aditivo.codigo,
-            Aditivo.porcentaje_aplicado,
-            TipoAditivo.nombre.label("tipo"),
+        _estructura_filter(
+            select(
+                ResultadoConcreto.temperatura,
+                ResultadoConcreto.humedad,
+                ResultadoConcreto.relacion_ac,
+                ResultadoConcreto.resistencia_mpa,
+                Aditivo.codigo,
+                Aditivo.porcentaje_aplicado,
+                TipoAditivo.nombre.label("tipo"),
+            )
+            .join(Aditivo, Aditivo.id == ResultadoConcreto.aditivo_id)
+            .join(TipoAditivo, TipoAditivo.id == Aditivo.tipo_aditivo_id)
+            .where(ResultadoConcreto.edad_dias == edad_dias)
+            .order_by(ResultadoConcreto.id),
+            tipo_estructura,
         )
-        .join(Aditivo, Aditivo.id == ResultadoConcreto.aditivo_id)
-        .join(TipoAditivo, TipoAditivo.id == Aditivo.tipo_aditivo_id)
-        .where(ResultadoConcreto.edad_dias == edad_dias)
-        .order_by(ResultadoConcreto.id)
     ).all()
 
     puntos = []
@@ -286,6 +315,7 @@ def dispersion(variable: str, edad_dias: int, tipo_aditivo: str | None = None) -
         "variable": variable,
         "edad_dias": edad_dias,
         "tipo_aditivo": tipo_aditivo,
+        "tipo_estructura": tipo_estructura,
         "num_puntos": len(puntos),
         "correlacion": pearson([p["x"] for p in puntos], [p["y"] for p in puntos]),
         "tipos_aditivo": sorted({p["tipo_aditivo"] for p in puntos}),
@@ -328,9 +358,97 @@ def calibration() -> dict:
 
     return {
         "modelo": "f(t) = a + b*ln(t), ajuste por minimos cuadrados sobre promedios 7/14/28 d",
+        "num_ensayos": len(rows),
         "combinaciones": len(detalle),
         "mae_global": round(sum(abs_errors) / len(abs_errors), 3) if abs_errors else 0.0,
         "rmse_global": round(math.sqrt(sum(sq_errors) / len(sq_errors)), 3) if sq_errors else 0.0,
         "r2_promedio": round(statistics.fmean(r2s), 4) if r2s else None,
+        "validacion": cross_validation(groups),
         "detalle": detalle,
     }
+
+
+def _error_metrics(pairs: list[tuple[float, float]]) -> dict:
+    """MAE, RMSE y MAPE de pares (real, predicho)."""
+    if not pairs:
+        return {"n": 0, "mae": None, "rmse": None, "mape": None}
+    errs = [real - pred for real, pred in pairs]
+    return {
+        "n": len(pairs),
+        "mae": round(sum(abs(e) for e in errs) / len(errs), 3),
+        "rmse": round(math.sqrt(sum(e * e for e in errs) / len(errs)), 3),
+        "mape": round(sum(abs(e) / real for e, (real, _) in zip(errs, pairs)) / len(errs) * 100, 2),
+    }
+
+
+def cross_validation(groups: dict[tuple, list]) -> dict:
+    """Validación cruzada dejando un cilindro fuera (leave-one-out).
+
+    Para cada cilindro se recalculan los promedios por edad de su combinación
+    sin él y se predice su resistencia con:
+    - `curva_log`: la curva f(t) = a + b·ln(t) ajustada a esos promedios;
+    - `promedio_edad`: el promedio de los demás cilindros de la misma edad
+      (modelo base de referencia).
+    El error se mide sobre cilindros que el modelo no vio, así que no está
+    inflado como el R² del ajuste.
+    """
+    pares: dict[str, dict[int, list[tuple[float, float]]]] = {
+        "curva_log": defaultdict(list),
+        "promedio_edad": defaultdict(list),
+    }
+    for rs in groups.values():
+        sums: dict[int, float] = defaultdict(float)
+        counts: dict[int, int] = defaultdict(int)
+        for r in rs:
+            sums[r.edad_dias] += r.resistencia_mpa
+            counts[r.edad_dias] += 1
+        for r in rs:
+            means = {
+                edad: (sums[edad] - (r.resistencia_mpa if edad == r.edad_dias else 0))
+                / (counts[edad] - (1 if edad == r.edad_dias else 0))
+                for edad in counts
+                if counts[edad] - (1 if edad == r.edad_dias else 0) > 0
+            }
+            if r.edad_dias in means:
+                pares["promedio_edad"][r.edad_dias].append((r.resistencia_mpa, means[r.edad_dias]))
+            curve = fit_log_curve(list(means.items()))
+            if curve:
+                pred = curve["a"] + curve["b"] * math.log(r.edad_dias)
+                pares["curva_log"][r.edad_dias].append((r.resistencia_mpa, pred))
+
+    def resumen(por_edad: dict[int, list]) -> dict:
+        todos = [p for edad in por_edad for p in por_edad[edad]]
+        return {
+            **_error_metrics(todos),
+            "por_edad": [
+                {"edad_dias": edad, **_error_metrics(por_edad[edad])} for edad in sorted(por_edad)
+            ],
+        }
+
+    return {
+        "metodo": "Validacion cruzada dejando un cilindro fuera (LOO)",
+        "curva_log": resumen(pares["curva_log"]),
+        "promedio_edad": resumen(pares["promedio_edad"]),
+    }
+
+
+def save_calibration(motivo: str, user_id: int | None = None) -> Calibracion:
+    """Ejecuta la calibración y guarda el resultado en el historial."""
+    result = calibration()
+    val = result["validacion"]["curva_log"]
+    row = Calibracion(
+        ejecutada_por=user_id,
+        motivo=motivo,
+        num_ensayos=result["num_ensayos"],
+        num_combinaciones=result["combinaciones"],
+        mae_ajuste=result["mae_global"],
+        rmse_ajuste=result["rmse_global"],
+        r2_promedio=result["r2_promedio"],
+        mae_validacion=val["mae"],
+        rmse_validacion=val["rmse"],
+        mape_validacion=val["mape"],
+        detalle={"validacion": result["validacion"]},
+    )
+    db.session.add(row)
+    db.session.commit()
+    return row

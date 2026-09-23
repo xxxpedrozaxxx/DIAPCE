@@ -1,0 +1,35 @@
+flowchart LR
+  U(["Usuario de laboratorio<br/>(estudiante, docente,<br/>profesional)"])
+
+  subgraph SIS["Sistema DIAPCE"]
+    direction TB
+    CU1(["CU-01 Registrarse / iniciar sesión"])
+    CU2(["CU-02 Registrar ensayo de un cilindro"])
+    CU3(["CU-03 Importar ensayos desde CSV"])
+    CU4(["CU-04 Consultar y filtrar ensayos"])
+    CU5(["CU-05 Eliminar ensayo propio"])
+    CU6(["CU-06 Crear proyecto y predecir resistencia"])
+    CU7(["CU-07 Consultar proyecto y mezcla"])
+    CU8(["CU-08 Analizar dispersión"])
+    CU9(["CU-09 Consultar rangos óptimos"])
+    CU10(["CU-10 Comparar mezclas"])
+    CU11(["CU-11 Consultar calibración del modelo"])
+    CU12(["CU-12 Recalibrar el modelo"])
+  end
+
+  U --- CU1
+  U --- CU2
+  U --- CU3
+  U --- CU4
+  U --- CU5
+  U --- CU6
+  U --- CU7
+  U --- CU8
+  U --- CU9
+  U --- CU10
+  U --- CU11
+
+  CU2 -. "«include»" .-> CU12
+  CU3 -. "«include»" .-> CU12
+  CU5 -. "«include»" .-> CU12
+  CU11 -. "«extend»" .-> CU12

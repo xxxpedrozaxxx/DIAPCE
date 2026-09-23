@@ -1,0 +1,90 @@
+classDiagram
+  direction LR
+
+  class ApiClient {
+    -String baseUrl
+    -String? token
+    +get(path, query) Future
+    +post(path, body) Future
+    +delete(path) Future
+    +setToken(token)
+  }
+  class ExperimentService {
+    +predict(t, h, ac, aditivo) Prediction
+    +optimalRanges(objetivo, estructura) OptimalRanges
+    +dispersion(variable, edad, aditivo, estructura) Dispersion
+    +calibration() Calibration
+    +registerResult(ensayo) Resultado
+    +importCsv(texto) int
+    +listResults(filtros) ResultadoPage
+  }
+  class ProjectService {
+    +getAllProjects() List~ProjectData~
+    +createProject(p) ProjectData
+    +deleteProject(id) bool
+  }
+  ExperimentService --> ApiClient
+  ProjectService --> ApiClient
+
+  class Blueprints {
+    <<Flask · API REST>>
+    auth · projects · mixtures
+    experiments · results · catalog
+  }
+  class analysis {
+    <<módulo Python>>
+    +fit_log_curve(puntos) curva
+    +predict_strength(t, h, ac, aditivo) dict
+    +optimal_ranges(objetivo, estructura) dict
+    +dispersion(variable, edad, aditivo, estructura) dict
+    +calibration() dict
+    +cross_validation(grupos) dict
+    +save_calibration(motivo, usuario) Calibracion
+  }
+  class importer {
+    <<módulo Python>>
+    +parse_csv(texto) filas, errores
+  }
+  ApiClient ..> Blueprints : HTTP/JSON
+  Blueprints --> analysis
+  Blueprints --> importer
+
+  class ResultadoConcreto {
+    +int temperatura
+    +int humedad
+    +float relacion_ac
+    +int edad_dias
+    +float resistencia_mpa
+    +String origen
+    +Date fecha_ensayo
+  }
+  class Aditivo {
+    +String codigo
+    +String porcentaje_aplicado
+  }
+  class TipoEstructura {
+    +String codigo
+    +String nombre
+  }
+  class Project {
+    +String project_name
+    +float resistance_target
+    +float resistencia_predicha_28d
+  }
+  class Calibracion {
+    +String motivo
+    +int num_ensayos
+    +float mae_validacion
+    +float rmse_validacion
+  }
+  class User {
+    +String email
+    +String password_hash
+  }
+  analysis --> ResultadoConcreto : consulta
+  analysis --> Calibracion : guarda
+  ResultadoConcreto --> Aditivo
+  ResultadoConcreto --> TipoEstructura
+  Project --> TipoEstructura
+  Project --> User
+  ResultadoConcreto --> User : registrado_por

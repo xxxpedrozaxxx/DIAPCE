@@ -15,6 +15,7 @@ dependencies:
   google_fonts: ^8.2.1
   http: ^1.2.2                  # Cliente REST hacia el backend Flask
   shared_preferences: ^2.3.3     # Token JWT (flutter_secure_storage requiere ATL en Windows)
+  printing: ^5.15.1
 
 dev_dependencies:
   flutter_test:

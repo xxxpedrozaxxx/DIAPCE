@@ -1,0 +1,26 @@
+sequenceDiagram
+  autonumber
+  actor U as Usuario
+  participant APP as App Flutter
+  participant API as API Flask<br/>/api/experiments/results
+  participant VAL as Validación<br/>(marshmallow)
+  participant AN as analysis.py
+  participant DB as PostgreSQL
+
+  U->>APP: Diligencia el ensayo (estructura, condiciones,<br/>aditivo, edad, resistencia) y pulsa Guardar
+  APP->>API: POST /results + JSON + token JWT
+  API->>API: Verifica el token y el usuario
+  API->>VAL: Valida rangos y campos obligatorios
+  alt Datos inválidos
+    VAL-->>API: errores por campo
+    API-->>APP: 422 + errores
+    APP-->>U: Muestra el error del campo
+  else Datos válidos
+    API->>DB: INSERT resultados_concreto<br/>(origen = registro, tipo_estructura_id, registrado_por)
+    API->>AN: save_calibration("registro")
+    AN->>DB: SELECT ensayos
+    AN->>AN: Ajusta f(t)=a+b·ln(t) por combinación<br/>y valida dejando un cilindro fuera
+    AN->>DB: INSERT calibraciones (MAE, RMSE, MAPE)
+    API-->>APP: 201 + ensayo registrado
+    APP-->>U: "Ensayo guardado. Modelo recalibrado."
+  end

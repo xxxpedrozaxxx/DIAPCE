@@ -8,6 +8,7 @@ import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/services/project_service.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
 import 'package:diapce_aplicationn/view/analysis_screen.dart';
+import 'package:diapce_aplicationn/view/lab_results_screen.dart';
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
 import 'package:diapce_aplicationn/view/main_login.dart';
 import 'package:flutter/material.dart';
@@ -91,16 +92,17 @@ class _HallState extends State<Hall> {
     return DateFormat('dd/MM/yyyy').format(date);
   }
 
+  void _openLabResults() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LabResultsScreen()),
+    );
+  }
+
   void _openAnalysis() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AnalysisScreen()),
-    );
-  }
-
-  void _handleLinkAction() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Acción de vincular no implementada')),
     );
   }
 
@@ -191,6 +193,10 @@ class _HallState extends State<Hall> {
           Navigator.pop(context);
           _openAnalysis();
         },
+        onLabResults: () {
+          Navigator.pop(context);
+          _openLabResults();
+        },
       ),
       appBar: AppBar(
         title: Text(
@@ -199,14 +205,14 @@ class _HallState extends State<Hall> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.science_outlined),
+            tooltip: 'Ensayos de laboratorio',
+            onPressed: _openLabResults,
+          ),
+          IconButton(
             icon: const Icon(Icons.insights_rounded),
             tooltip: 'Análisis de laboratorio',
             onPressed: _openAnalysis,
-          ),
-          IconButton(
-            icon: const Icon(Icons.link_rounded),
-            tooltip: 'Vincular',
-            onPressed: _handleLinkAction,
           ),
           const SizedBox(width: AppSpacing.sm),
         ],
@@ -497,11 +503,13 @@ class _AppDrawer extends StatelessWidget {
   final String email;
   final VoidCallback onLogout;
   final VoidCallback onAnalysis;
+  final VoidCallback onLabResults;
 
   const _AppDrawer({
     required this.email,
     required this.onLogout,
     required this.onAnalysis,
+    required this.onLabResults,
   });
 
   @override
@@ -541,6 +549,14 @@ class _AppDrawer extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               const Divider(),
               const SizedBox(height: AppSpacing.md),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                ),
+                leading: Icon(Icons.science_outlined, color: scheme.primary),
+                title: Text('Ensayos de laboratorio', style: text.titleMedium),
+                onTap: onLabResults,
+              ),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,

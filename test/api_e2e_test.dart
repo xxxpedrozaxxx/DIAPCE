@@ -76,10 +76,10 @@ void main() {
     final ranges = await experiments.optimalRanges(35);
     expect(ranges.combinacionesQueCumplen, greaterThan(0));
 
-    // Composición propuesta sin persistir.
-    final preview = await MixtureService().previewMixture('Tuneles', 45);
+    // Dosificación ACI 211.1 propuesta sin persistir.
+    final preview = await MixtureService().previewMixture('Tuneles', 0.45, 6);
     expect(preview.id, isNull);
-    expect(preview.materials, isNotEmpty);
+    expect((preview.materials ?? []).map((m) => m.materialName), contains('Aditivo Plastificante'));
 
     // Crear proyecto: el servidor completa predicciones y crea la mezcla.
     final projects = ProjectService();
@@ -97,7 +97,11 @@ void main() {
     expect(created.resistenciaPredicha28d, pred.dias28);
 
     final mixture = await MixtureService().getMixtureWithMaterials(created.mixtureId!);
-    expect(mixture!.name, startsWith('Concreto Autocompactante'));
+    expect(mixture!.name, startsWith('Dosificación ACI 211.1'));
+
+    // Reporte PDF del proyecto (botón «Descargar»).
+    final pdf = await projects.downloadReport(created.id!);
+    expect(String.fromCharCodes(pdf.take(4)), '%PDF');
 
     final list = await projects.getAllProjects();
     expect(list.map((p) => p.id), contains(created.id));

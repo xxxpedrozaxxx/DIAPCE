@@ -1,72 +1,80 @@
-"""Lógica de dosificación de mezclas de ejemplo.
+"""Composición de la mezcla de un proyecto.
 
-Port de `createRandomExampleMixture` de lib/core/database_helper.dart con un
-cambio: la plantilla ya no se elige al azar, sino según el tipo de estructura
-y la resistencia objetivo del proyecto (clasificación del objetivo 1).
+La composición de 1 m³ se calcula con el método ACI 211.1 (`mix_design.py`) a
+partir de la relación agua/cemento y el aditivo elegidos en el proyecto —las
+mismas condiciones de los ensayos que sustentan la predicción— y del tipo de
+estructura. Las densidades de cemento, arena y grava se toman del catálogo
+de materiales cuando están disponibles.
 """
 from __future__ import annotations
 
 from sqlalchemy import select
 
+from .analysis import porcentaje_valor
 from .extensions import db
-from .models import Material, Mixture, MixtureMaterial
+from .mix_design import Materiales, disenar
+from .models import Aditivo, Material, Mixture, MixtureMaterial
 
-# Cantidades en kg (o L para agua/aditivos) por 1 m³.
-TEMPLATES: dict[str, dict] = {
-    "estandar": {
-        "name": "Concreto Estándar",
-        "description": "Mezcla estándar para construcción general",
-        "materials": {"Cemento Portland": 350.0, "Agua": 175.0, "Arena": 700.0, "Grava": 1100.0, "Aditivo Plastificante": 1.2},
-    },
-    "alta_resistencia": {
-        "name": "Concreto de Alta Resistencia",
-        "description": "Mezcla para estructuras que requieren alta resistencia",
-        "materials": {"Cemento Portland": 450.0, "Agua": 160.0, "Arena": 650.0, "Grava": 1050.0, "Aditivo Plastificante": 2.0, "Fibra de Acero": 25.0},
-    },
-    "fluido": {
-        "name": "Concreto Fluido",
-        "description": "Mezcla de alta trabajabilidad para elementos complejos",
-        "materials": {"Cemento Portland": 380.0, "Agua": 190.0, "Arena": 750.0, "Grava": 1000.0, "Aditivo Plastificante": 3.5},
-    },
-    "ligero": {
-        "name": "Concreto Ligero",
-        "description": "Mezcla con agregados ligeros para reducir peso",
-        "materials": {"Cemento Portland": 320.0, "Agua": 180.0, "Arena": 600.0, "Grava": 800.0, "Aditivo Plastificante": 1.5},
-    },
-    "pavimentos": {
-        "name": "Concreto para Pavimentos",
-        "description": "Mezcla especializada para pavimentación",
-        "materials": {"Cemento Portland": 400.0, "Agua": 165.0, "Arena": 680.0, "Grava": 1150.0, "Aditivo Plastificante": 1.8, "Fibra de Acero": 15.0},
-    },
-    "premezclado": {
-        "name": "Concreto Premezclado",
-        "description": "Mezcla estándar para concreto premezclado",
-        "materials": {"Cemento Portland": 330.0, "Agua": 185.0, "Arena": 720.0, "Grava": 1080.0, "Aditivo Plastificante": 1.0},
-    },
-    "autocompactante": {
-        "name": "Concreto Autocompactante",
-        "description": "Mezcla que se compacta por gravedad",
-        "materials": {"Cemento Portland": 420.0, "Agua": 170.0, "Arena": 800.0, "Grava": 950.0, "Aditivo Plastificante": 4.2},
-    },
-    "fibras": {
-        "name": "Concreto Reforzado con Fibras",
-        "description": "Mezcla con alto contenido de fibras de refuerzo",
-        "materials": {"Cemento Portland": 380.0, "Agua": 175.0, "Arena": 690.0, "Grava": 1020.0, "Aditivo Plastificante": 2.5, "Fibra de Acero": 40.0},
-    },
+NOMBRES = {
+    "cemento": "Cemento Portland",
+    "agua": "Agua",
+    "arena": "Arena",
+    "grava": "Grava",
+    "Plastificante": "Aditivo Plastificante",
+    "Impermeabilizante": "Aditivo Impermeabilizante",
 }
-
-# (tipo de estructura) → (plantilla para resistencia normal, plantilla para ≥ 40 MPa)
-BY_STRUCTURE: dict[str, tuple[str, str]] = {
-    "Puentes": ("fibras", "alta_resistencia"),
-    "Tuneles": ("fluido", "autocompactante"),
-    "Muros": ("estandar", "pavimentos"),
-}
-HIGH_STRENGTH_MPA = 40.0
+ESTRUCTURAS = {"Puentes": "puente", "Tuneles": "túnel", "Muros": "muro de contención"}
 
 
-def select_template(work_type: str | None, resistance_target: float) -> dict:
-    normal, high = BY_STRUCTURE.get(work_type or "", ("premezclado", "alta_resistencia"))
-    return TEMPLATES[high if resistance_target >= HIGH_STRENGTH_MPA else normal]
+def _catalogo() -> dict[str, Material]:
+    return {m.name: m for m in db.session.scalars(select(Material).where(Material.name.in_(NOMBRES.values())))}
+
+
+def _materiales(catalogo: dict[str, Material]) -> Materiales:
+    m = Materiales()
+    for campo, nombre in (("densidad_cemento", "Cemento Portland"), ("densidad_arena", "Arena"),
+                          ("densidad_grava", "Grava")):
+        if catalogo.get(nombre) and catalogo[nombre].density:
+            setattr(m, campo, catalogo[nombre].density)
+    return m
+
+
+def _aditivo(aditivo_id: int | None) -> tuple[float, str | None, str | None]:
+    """(dosis %, tipo, código) del aditivo; el control P0 no lleva aditivo."""
+    aditivo = db.session.get(Aditivo, aditivo_id) if aditivo_id else None
+    if aditivo is None:
+        return 0.0, None, None
+    dosis = porcentaje_valor(aditivo.porcentaje_aplicado)
+    return dosis, (aditivo.tipo_aditivo.nombre if dosis > 0 else None), aditivo.codigo
+
+
+def proporciones(relacion_ac: float, tipo_estructura: str | None, aditivo_id: int | None) -> dict:
+    """Diseño ACI 211.1 con los materiales del catálogo: {diseno, filas, nombre, descripcion}."""
+    catalogo = _catalogo()
+    dosis, tipo, codigo = _aditivo(aditivo_id)
+    diseno = disenar(relacion_ac, tipo_estructura, dosis, tipo, _materiales(catalogo))
+    filas = []
+    for clave in ("cemento", "agua", "arena", "grava"):
+        filas.append((catalogo.get(NOMBRES[clave]), diseno[clave]))
+    if diseno["aditivo"] and tipo:
+        material = catalogo.get(NOMBRES[tipo])
+        cantidad = diseno["aditivo"]
+        if material is not None and material.unit == "L" and material.density:
+            cantidad = round(cantidad / material.density, 2)  # kg → L
+        filas.append((material, cantidad))
+    sup = diseno["supuestos"]
+    aditivo_txt = f"{codigo} ({tipo.lower()} {dosis:g} %)" if tipo else "sin aditivo"
+    return {
+        "diseno": diseno,
+        "filas": [(m, q) for m, q in filas if m is not None],
+        "nombre": f"Dosificación ACI 211.1 · a/c {relacion_ac:.2f}",
+        "descripcion": (
+            f"Mezcla para {ESTRUCTURAS.get(tipo_estructura or '', 'estructura')} por volumen absoluto "
+            f"(ACI 211.1): a/c {relacion_ac:.2f}, {aditivo_txt}, asentamiento {sup['asentamiento']}, "
+            f"TMN {sup['tamano_maximo_mm']:g} mm, módulo de finura {sup['modulo_finura_arena']:.2f}, "
+            f"aire atrapado {sup['aire_atrapado_pct']:g} %."
+        ),
+    }
 
 
 def recalculate_percentages(mixture: Mixture) -> None:
@@ -75,47 +83,39 @@ def recalculate_percentages(mixture: Mixture) -> None:
         mm.percentage = round(mm.quantity / total * 100, 2) if total > 0 else None
 
 
-def preview_example_mixture(work_type: str | None, resistance_target: float) -> dict:
+def preview_example_mixture(work_type: str | None, relacion_ac: float, aditivo_id: int | None) -> dict:
     """Composición que se generaría para un proyecto, sin persistir nada."""
-    template = select_template(work_type, resistance_target)
-    by_name = {
-        m.name: m
-        for m in db.session.scalars(select(Material).where(Material.name.in_(template["materials"]))).all()
-    }
-    total = sum(q for n, q in template["materials"].items() if n in by_name)
+    p = proporciones(relacion_ac, work_type, aditivo_id)
+    total = sum(q for _, q in p["filas"])
     materials = [
-        {
-            "material_id": m.id, "material": m, "quantity": qty,
-            "percentage": round(qty / total * 100, 2) if total else None,
-        }
-        for name, qty in template["materials"].items()
-        if (m := by_name.get(name)) is not None
+        {"material_id": m.id, "material": m, "quantity": q,
+         "percentage": round(q / total * 100, 2) if total else None}
+        for m, q in p["filas"]
     ]
     return {
-        "id": None, "name": template["name"], "description": template["description"],
+        "id": None, "name": p["nombre"], "description": p["descripcion"],
         "total_volume": 1.0, "project_id": None, "created_at": None, "materials": materials,
     }
 
 
-def create_example_mixture(project_name: str, work_type: str | None, resistance_target: float) -> Mixture:
-    """Crea (sin commit) una mezcla de 1 m³ con la plantilla adecuada."""
-    template = select_template(work_type, resistance_target)
-    mixture = Mixture(
-        name=f"{template['name']} - {project_name}",
-        description=template["description"],
-        total_volume=1.0,
-    )
-    by_name = {
-        m.name: m
-        for m in db.session.scalars(select(Material).where(Material.name.in_(template["materials"]))).all()
-    }
-    for name, qty in template["materials"].items():
-        material = by_name.get(name)
-        if material is not None:
-            mixture.materials.append(MixtureMaterial(material=material, quantity=qty))
+def create_example_mixture(
+    project_name: str, work_type: str | None, relacion_ac: float, aditivo_id: int | None
+) -> Mixture:
+    """Crea (sin commit) la mezcla de 1 m³ del proyecto."""
+    p = proporciones(relacion_ac, work_type, aditivo_id)
+    mixture = Mixture(name=f"{p['nombre']} - {project_name}", description=p["descripcion"], total_volume=1.0)
+    for material, cantidad in p["filas"]:
+        mixture.materials.append(MixtureMaterial(material=material, quantity=cantidad))
     recalculate_percentages(mixture)
     db.session.add(mixture)
     return mixture
+
+
+def mixture_cost(filas) -> float | None:
+    """Costo de referencia con los precios del catálogo (None si falta algún precio)."""
+    if any(m.cost_per_unit is None for m, _ in filas):
+        return None
+    return round(sum(m.cost_per_unit * q for m, q in filas), 2)
 
 
 def mixture_statistics(mixture: Mixture) -> dict:

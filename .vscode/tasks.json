@@ -30,6 +30,23 @@
             "args": ["seed.py"],
             "options": { "cwd": "${workspaceFolder}/backend" },
             "problemMatcher": []
+        },
+        {
+            "label": "Backend: aplicar migraciones",
+            "type": "shell",
+            "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+            "args": ["migrate.py"],
+            "options": { "cwd": "${workspaceFolder}/backend" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Backend: pruebas (pytest)",
+            "type": "shell",
+            "command": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
+            "args": ["-m", "pytest", "-q"],
+            "options": { "cwd": "${workspaceFolder}/backend" },
+            "group": "test",
+            "problemMatcher": []
         }
     ]
 }

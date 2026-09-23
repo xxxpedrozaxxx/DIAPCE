@@ -1,4 +1,6 @@
 // lib/view/view_existing_project_screen.dart
+import 'dart:typed_data';
+
 import 'package:diapce_aplicationn/components/app_button.dart';
 import 'package:diapce_aplicationn/components/app_card.dart';
 import 'package:diapce_aplicationn/components/bottom_action_bar.dart';
@@ -18,6 +20,7 @@ import 'package:diapce_aplicationn/view/hall.dart' show projectHeroTag;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 
 class ViewExistingProjectScreen extends StatefulWidget {
   final ProjectData project; // Recibirá el objeto ProjectData completo
@@ -38,8 +41,10 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
   final ProjectService _projectService = ProjectService();
   final ExperimentService _experimentService = ExperimentService();
   List<MaterialInMixture> _materials = [];
+  String? _mixtureDescription;
   bool _isLoading = true;
   bool _saving = false;
+  bool _downloading = false;
   Prediction? _prediction;
   bool _loadingPrediction = true;
   late ProjectData _currentProject; // Track the current project state
@@ -55,23 +60,44 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
   Future<void> _loadMixtureData() async {
     try {
       // Proyecto guardado: su mezcla ya existe en el servidor. Proyecto
-      // nuevo: el servidor propone la composición según tipo de estructura y
-      // resistencia objetivo, sin persistir nada hasta "Guardar".
+      // nuevo: el servidor la dosifica por ACI 211.1 con la relación a/c, el
+      // aditivo y el tipo de estructura, sin persistir nada hasta "Guardar".
       final mixture = _currentProject.mixtureId != null
           ? await _mixtureService.getMixtureWithMaterials(_currentProject.mixtureId!)
           : await _mixtureService.previewMixture(
               _currentProject.workType ?? 'Muros',
-              _currentProject.resistanceTarget,
+              _currentProject.relacionAc,
+              _currentProject.aditivoId,
             );
       if (!mounted) return;
       setState(() {
         _materials = mixture?.materials ?? [];
+        _mixtureDescription = mixture?.description;
         _isLoading = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  /// Descarga el PDF del proyecto y abre la vista de impresión del sistema,
+  /// desde donde se puede guardar como PDF, imprimir o compartir.
+  Future<void> _downloadReport() async {
+    final id = _currentProject.id;
+    if (id == null) return;
+    setState(() => _downloading = true);
+    try {
+      final bytes = Uint8List.fromList(await _projectService.downloadReport(id));
+      final nombre = _currentProject.projectName.replaceAll(RegExp(r'[^\w]+'), '_');
+      await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'DIAPCE_$nombre.pdf');
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
     }
   }
 
@@ -315,8 +341,12 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                 children: [
                   const SectionHeader(
                     title: 'Composición de materiales',
-                    subtitle: 'Proporción de la mezcla',
+                    subtitle: 'Dosificación por m³ (método ACI 211.1)',
                   ),
+                  if (_mixtureDescription != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(_mixtureDescription!, style: text.bodySmall),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   AnimatedSwitcher(
                     duration: AppMotion.normal,
@@ -456,31 +486,9 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
       ),
       bottomNavigationBar: BottomActionBar(
         children: [
+          // El reporte se genera en el servidor, así que solo existe para
+          // proyectos guardados; en la vista previa la acción es guardar.
           if (widget.isNewProject)
-            // Con dos acciones, descargar pasa a botón compacto de ícono.
-            SizedBox(
-              width: 52,
-              height: 52,
-              child: OutlinedButton(
-                onPressed: () {
-                  // Acción de descarga aquí
-                },
-                style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
-                child: const Icon(Icons.download_rounded, size: 22),
-              ),
-            )
-          else
-            Expanded(
-              child: AppButton.outline(
-                label: 'Descargar',
-                icon: Icons.download_rounded,
-                onPressed: () {
-                  // Acción de descarga aquí
-                },
-              ),
-            ),
-          if (widget.isNewProject) ...[
-            const SizedBox(width: AppSpacing.sm + 4),
             Expanded(
               child: AppButton(
                 label: 'Guardar proyecto',
@@ -488,8 +496,16 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                 loading: _saving,
                 onPressed: _saveProject,
               ),
+            )
+          else
+            Expanded(
+              child: AppButton.outline(
+                label: 'Descargar reporte PDF',
+                icon: Icons.picture_as_pdf_rounded,
+                loading: _downloading,
+                onPressed: _downloadReport,
+              ),
             ),
-          ],
         ],
       ),
     );

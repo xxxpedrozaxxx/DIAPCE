@@ -39,4 +39,14 @@ def create_app(config_object=Config) -> Flask:
     def _invalid(reason):
         return jsonify({"code": 401, "status": "Unauthorized", "message": reason}), 401
 
+    # Un token válido de un usuario que ya no existe (p. ej. base recreada)
+    # se rechaza con 401 en vez de fallar después por la llave foránea.
+    @jwt.user_lookup_loader
+    def _lookup_user(_header, payload):
+        return db.session.get(models.User, int(payload["sub"]))
+
+    @jwt.user_lookup_error_loader
+    def _user_not_found(_header, _payload):
+        return jsonify({"code": 401, "status": "Unauthorized", "message": "Sesión expirada, inicia sesión de nuevo"}), 401
+
     return app

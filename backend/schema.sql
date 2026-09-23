@@ -1,5 +1,7 @@
-
-\restrict yDShBPJbMAid8t2de51mPIcPai4Vb8Ye5y5LGtbcKX1xxBN0kc0aozRdER4wdYU
+-- Esquema DIAPCE v6 (PostgreSQL), generado con scripts/export_schema.py (pg_dump --schema-only).
+-- Tablas: users, tipos_estructura, materials, tipos_aditivo, productos, aditivos,
+-- resultados_concreto, mixtures, mixture_materials, projects, calibraciones,
+-- schema_migrations.
 
 CREATE TABLE public.aditivos (
     id integer NOT NULL,
@@ -18,6 +20,32 @@ CREATE SEQUENCE public.aditivos_id_seq
     CACHE 1;
 
 ALTER SEQUENCE public.aditivos_id_seq OWNED BY public.aditivos.id;
+
+CREATE TABLE public.calibraciones (
+    id integer NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    ejecutada_por integer,
+    motivo character varying(16) NOT NULL,
+    num_ensayos integer NOT NULL,
+    num_combinaciones integer NOT NULL,
+    mae_ajuste double precision NOT NULL,
+    rmse_ajuste double precision NOT NULL,
+    r2_promedio double precision,
+    mae_validacion double precision,
+    rmse_validacion double precision,
+    mape_validacion double precision,
+    detalle json
+);
+
+CREATE SEQUENCE public.calibraciones_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.calibraciones_id_seq OWNED BY public.calibraciones.id;
 
 CREATE TABLE public.materials (
     id integer NOT NULL,
@@ -130,7 +158,16 @@ CREATE TABLE public.resultados_concreto (
     relacion_ac double precision NOT NULL,
     edad_dias integer NOT NULL,
     resistencia_mpa double precision NOT NULL,
-    aditivo_id integer NOT NULL
+    aditivo_id integer NOT NULL,
+    tipo_estructura_id integer,
+    registrado_por integer,
+    origen character varying(16) DEFAULT 'semilla'::character varying NOT NULL,
+    fecha_ensayo date,
+    observaciones text,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_resultados_edad CHECK ((edad_dias > 0)),
+    CONSTRAINT ck_resultados_humedad CHECK (((humedad >= 0) AND (humedad <= 100))),
+    CONSTRAINT ck_resultados_resistencia CHECK ((resistencia_mpa > (0)::double precision))
 );
 
 CREATE SEQUENCE public.resultados_concreto_id_seq
@@ -142,6 +179,11 @@ CREATE SEQUENCE public.resultados_concreto_id_seq
     CACHE 1;
 
 ALTER SEQUENCE public.resultados_concreto_id_seq OWNED BY public.resultados_concreto.id;
+
+CREATE TABLE public.schema_migrations (
+    nombre character varying(128) NOT NULL,
+    aplicada_en timestamp without time zone DEFAULT now() NOT NULL
+);
 
 CREATE TABLE public.tipos_aditivo (
     id integer NOT NULL,
@@ -193,6 +235,8 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 ALTER TABLE ONLY public.aditivos ALTER COLUMN id SET DEFAULT nextval('public.aditivos_id_seq'::regclass);
 
+ALTER TABLE ONLY public.calibraciones ALTER COLUMN id SET DEFAULT nextval('public.calibraciones_id_seq'::regclass);
+
 ALTER TABLE ONLY public.materials ALTER COLUMN id SET DEFAULT nextval('public.materials_id_seq'::regclass);
 
 ALTER TABLE ONLY public.mixture_materials ALTER COLUMN id SET DEFAULT nextval('public.mixture_materials_id_seq'::regclass);
@@ -216,6 +260,9 @@ ALTER TABLE ONLY public.aditivos
 
 ALTER TABLE ONLY public.aditivos
     ADD CONSTRAINT aditivos_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.calibraciones
+    ADD CONSTRAINT calibraciones_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.materials
     ADD CONSTRAINT materials_name_key UNIQUE (name);
@@ -244,6 +291,9 @@ ALTER TABLE ONLY public.projects
 ALTER TABLE ONLY public.resultados_concreto
     ADD CONSTRAINT resultados_concreto_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (nombre);
+
 ALTER TABLE ONLY public.tipos_aditivo
     ADD CONSTRAINT tipos_aditivo_nombre_key UNIQUE (nombre);
 
@@ -264,11 +314,16 @@ ALTER TABLE ONLY public.users
 
 CREATE INDEX idx_busqueda_resistencia ON public.resultados_concreto USING btree (temperatura, humedad, relacion_ac, aditivo_id, edad_dias);
 
+CREATE INDEX idx_resultados_tipo_estructura ON public.resultados_concreto USING btree (tipo_estructura_id);
+
 ALTER TABLE ONLY public.aditivos
     ADD CONSTRAINT aditivos_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.productos(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.aditivos
     ADD CONSTRAINT aditivos_tipo_aditivo_id_fkey FOREIGN KEY (tipo_aditivo_id) REFERENCES public.tipos_aditivo(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.calibraciones
+    ADD CONSTRAINT calibraciones_ejecutada_por_fkey FOREIGN KEY (ejecutada_por) REFERENCES public.users(id) ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.mixtures
     ADD CONSTRAINT fk_mixtures_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
@@ -294,5 +349,8 @@ ALTER TABLE ONLY public.projects
 ALTER TABLE ONLY public.resultados_concreto
     ADD CONSTRAINT resultados_concreto_aditivo_id_fkey FOREIGN KEY (aditivo_id) REFERENCES public.aditivos(id) ON DELETE CASCADE;
 
-\unrestrict yDShBPJbMAid8t2de51mPIcPai4Vb8Ye5y5LGtbcKX1xxBN0kc0aozRdER4wdYU
+ALTER TABLE ONLY public.resultados_concreto
+    ADD CONSTRAINT resultados_concreto_registrado_por_fkey FOREIGN KEY (registrado_por) REFERENCES public.users(id) ON DELETE SET NULL;
 
+ALTER TABLE ONLY public.resultados_concreto
+    ADD CONSTRAINT resultados_concreto_tipo_estructura_id_fkey FOREIGN KEY (tipo_estructura_id) REFERENCES public.tipos_estructura(id) ON DELETE SET NULL;

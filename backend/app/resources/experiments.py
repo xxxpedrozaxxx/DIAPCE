@@ -4,19 +4,36 @@
 - predict        → estadística por edad + curva f(t) = a + b·ln(t)
 - optimal-ranges → rangos de variables que alcanzan una resistencia objetivo
 - dispersion     → ensayos individuales vs. una variable + tabla de dispersión
+- calibration    → también /calibration/run (guardar) y /calibration/history
+- anova          → análisis de varianza tipo II
+- model          → regresión múltiple y su validación por combinación
+- optimize       → dosificación de menor cemento que alcanza f'cr (ACI 318 / 211.1)
 - calibration    → error del modelo contra los ensayos reales
 """
 from flask.views import MethodView
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_smorest import Blueprint
 from sqlalchemy import select
 
-from ..analysis import calibration, dispersion, optimal_ranges, predict_strength
+from ..analysis import (
+    calibration,
+    dispersion,
+    optimal_ranges,
+    predict_strength,
+    save_calibration,
+)
+from ..estadistica import anova, optimizar, regresion
 from ..extensions import db
-from ..models import Aditivo, ResultadoConcreto
+from ..models import Aditivo, Calibracion, ResultadoConcreto
 from ..schemas import (
     AditivoQuerySchema,
     AditivoSchema,
+    AnovaQuerySchema,
+    AnovaSchema,
+    OptimizeInputSchema,
+    OptimizeSchema,
+    RegressionSchema,
+    CalibrationRunSchema,
     CalibrationSchema,
     ConditionsQuerySchema,
     DispersionQuerySchema,
@@ -108,7 +125,7 @@ class OptimalRanges(MethodView):
     @blp.response(200, OptimalRangesSchema)
     def get(self, q):
         """Rangos de temperatura/humedad/a/c/aditivo que alcanzan el objetivo a 28 d."""
-        return optimal_ranges(q["resistencia_objetivo"])
+        return optimal_ranges(q["resistencia_objetivo"], q.get("tipo_estructura"))
 
 
 @blp.route("/dispersion")
@@ -118,7 +135,9 @@ class Dispersion(MethodView):
     @blp.response(200, DispersionSchema)
     def get(self, q):
         """Ensayos individuales de resistencia vs. una variable y tabla de dispersión."""
-        return dispersion(q["variable"], q["edad_dias"], q.get("tipo_aditivo"))
+        return dispersion(
+            q["variable"], q["edad_dias"], q.get("tipo_aditivo"), q.get("tipo_estructura")
+        )
 
 
 @blp.route("/calibration")
@@ -126,5 +145,60 @@ class Calibration(MethodView):
     @jwt_required()
     @blp.response(200, CalibrationSchema)
     def get(self):
-        """MAE / RMSE / R² del modelo por combinación y global."""
+        """Error de ajuste (MAE / RMSE / R²) y de validación cruzada del modelo."""
         return calibration()
+
+
+@blp.route("/anova")
+class Anova(MethodView):
+    @jwt_required()
+    @blp.arguments(AnovaQuerySchema, location="query")
+    @blp.response(200, AnovaSchema)
+    def get(self, q):
+        """ANOVA (tipo II) de la resistencia: temperatura, humedad, a/c, aditivo e interacciones."""
+        return anova(q["edad_dias"])
+
+
+@blp.route("/model")
+class Model(MethodView):
+    @jwt_required()
+    @blp.response(200, RegressionSchema)
+    def get(self):
+        """Modelo de regresión múltiple: coeficientes, ajuste y validación por combinación."""
+        resultado = regresion()
+        resultado.pop("_beta")
+        return resultado
+
+
+@blp.route("/optimize")
+class Optimize(MethodView):
+    @jwt_required()
+    @blp.arguments(OptimizeInputSchema)
+    @blp.response(200, OptimizeSchema)
+    def post(self, data):
+        """Dosificación de menor contenido de cemento que alcanza f'cr en el clima de la obra."""
+        return optimizar(
+            data["resistencia_objetivo"], data["temperatura"], data["humedad"],
+            data["tipo_estructura"], data["edad_dias"],
+        )
+
+
+@blp.route("/calibration/run")
+class CalibrationRun(MethodView):
+    @jwt_required()
+    @blp.response(201, CalibrationRunSchema)
+    def post(self):
+        """Recalibra el modelo con todos los ensayos y guarda la ejecución en el historial."""
+        return save_calibration("manual", int(get_jwt_identity()))
+
+
+@blp.route("/calibration/history")
+class CalibrationHistory(MethodView):
+    @jwt_required()
+    @blp.response(200, CalibrationRunSchema(many=True))
+    def get(self):
+        """Historial de calibraciones, de la más antigua a la más reciente (últimas 50)."""
+        rows = db.session.scalars(
+            select(Calibracion).order_by(Calibracion.id.desc()).limit(50)
+        ).all()
+        return list(reversed(rows))

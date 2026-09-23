@@ -3,7 +3,7 @@
     python seed.py            # crea tablas si no existen y siembra (idempotente)
     python seed.py --reset    # borra y recrea todas las tablas antes de sembrar
 
-Datos: 3 tipos de estructura, 24 materiales, 2 tipos de aditivo, 3 productos,
+Datos: 3 tipos de estructura, 25 materiales, 2 tipos de aditivo, 3 productos,
 7 aditivos y los ensayos de ../lib/data/csv_datos_1.1.csv (delimitador ';').
 Port de _insertDefaultMaterials / _insertExperimentalData / _loadCSVData de
 lib/core/database_helper.dart.
@@ -17,15 +17,18 @@ from pathlib import Path
 from sqlalchemy import func, select, text
 
 from app import create_app
+from app.analysis import save_calibration
 from app.extensions import db
 from app.models import (
     Aditivo,
+    Calibracion,
     Material,
     Producto,
     ResultadoConcreto,
     TipoAditivo,
     TipoEstructura,
 )
+from migrate import migrate
 
 CSV_PATH = Path(__file__).resolve().parent.parent / "lib" / "data" / "csv_datos_1.1.csv"
 
@@ -53,6 +56,7 @@ MATERIALS = [
     ("Aditivo Acelerante", "L", 1.12, 18.00, "Acelera el fraguado del concreto"),
     ("Aditivo Retardante", "L", 1.06, 16.00, "Retarda el fraguado del concreto"),
     ("Aditivo Incorporador de Aire", "L", 1.02, 20.00, "Incorpora burbujas de aire microscópicas"),
+    ("Aditivo Impermeabilizante", "kg", None, None, "Impermeabilizante integral (Euco Vandex AM 10I)"),
     # Fibras y refuerzos
     ("Fibra de Acero", "kg", 7.85, 25.00, "Fibras de acero para refuerzo"),
     ("Fibra de Polipropileno", "kg", 0.91, 35.00, "Fibras sintéticas para control de fisuras"),
@@ -97,11 +101,13 @@ def _sync_sequence(table: str) -> None:
 def seed_catalogs() -> None:
     if db.session.scalar(select(func.count()).select_from(TipoEstructura)) == 0:
         db.session.add_all(TipoEstructura(codigo=c, nombre=n) for c, n in TIPOS_ESTRUCTURA)
-    if db.session.scalar(select(func.count()).select_from(Material)) == 0:
-        db.session.add_all(
-            Material(name=n, unit=u, density=d, cost_per_unit=c, description=desc)
-            for n, u, d, c, desc in MATERIALS
-        )
+    # Material por material: una migración puede haber creado alguno antes.
+    existentes = set(db.session.scalars(select(Material.name)))
+    db.session.add_all(
+        Material(name=n, unit=u, density=d, cost_per_unit=c, description=desc)
+        for n, u, d, c, desc in MATERIALS
+        if n not in existentes
+    )
     if db.session.scalar(select(func.count()).select_from(TipoAditivo)) == 0:
         db.session.add_all(TipoAditivo(id=i, nombre=n) for i, n in TIPOS_ADITIVO)
         db.session.add_all(Producto(id=i, nombre_producto=n, marca=m) for i, n, m in PRODUCTOS)
@@ -146,13 +152,19 @@ def main(reset: bool) -> None:
     with app.app_context():
         if reset:
             db.drop_all()
+            db.session.execute(text("DROP TABLE IF EXISTS schema_migrations"))
+            db.session.commit()
             print("[OK] Tablas eliminadas")
         db.create_all()
-        print("[OK] Esquema verificado/creado")
+        aplicadas = migrate()
+        print("[OK] Esquema verificado/creado" + (f" (migraciones: {', '.join(aplicadas)})" if aplicadas else ""))
         seed_catalogs()
         print("[OK] Catálogos (tipos_estructura, materials, tipos_aditivo, productos, aditivos)")
         n = seed_csv()
         print(f"[OK] resultados_concreto: {n} filas insertadas" if n else "[--] resultados_concreto ya tenía datos")
+        if db.session.scalar(select(func.count()).select_from(Calibracion)) == 0:
+            run = save_calibration("semilla")
+            print(f"[OK] Calibración inicial: MAE validación {run.mae_validacion} MPa")
 
 
 if __name__ == "__main__":

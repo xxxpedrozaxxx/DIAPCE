@@ -1,17 +1,23 @@
 """Modelos SQLAlchemy — esquema DIAPCE v5 (PostgreSQL).
 
-Equivale a las 9 tablas de docs/base_de_datos.md (v4) más `tipos_estructura`,
+Equivale a las 9 tablas del esquema SQLite original (v4) más `tipos_estructura`,
 con estos cambios respecto a SQLite:
 - AUTOINCREMENT → SERIAL (Integer + primary_key).
 - projects.resistance_target INTEGER → REAL (Float).
 - projects.work_type TEXT libre → FK tipo_estructura_id.
 - users.password guarda hash bcrypt, nunca texto plano.
 - Todas las FK con ON DELETE explícito.
+
+v6: `resultados_concreto` guarda tipo de estructura, origen, fecha y usuario
+que registró el ensayo; tabla `calibraciones` con el historial del modelo.
+Bases existentes se actualizan con `python migrate.py`.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
+    Date,
     Float,
     ForeignKey,
     Index,
@@ -19,6 +25,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -97,7 +104,13 @@ class Aditivo(db.Model):
 
 
 class ResultadoConcreto(db.Model):
-    """Ensayo experimental de laboratorio (importado del CSV)."""
+    """Ensayo de resistencia a la compresión de un cilindro (NTC 673).
+
+    `origen` distingue los datos históricos cargados del CSV (`semilla`) de
+    los registrados desde la aplicación (`registro`) o importados por lote
+    (`importacion`). Los ensayos históricos no traen tipo de estructura
+    (`tipo_estructura_id` nulo = sin clasificar); los nuevos lo exigen.
+    """
 
     __tablename__ = "resultados_concreto"
     __table_args__ = (
@@ -105,6 +118,10 @@ class ResultadoConcreto(db.Model):
             "idx_busqueda_resistencia",
             "temperatura", "humedad", "relacion_ac", "aditivo_id", "edad_dias",
         ),
+        Index("idx_resultados_tipo_estructura", "tipo_estructura_id"),
+        CheckConstraint("resistencia_mpa > 0", name="ck_resultados_resistencia"),
+        CheckConstraint("edad_dias > 0", name="ck_resultados_edad"),
+        CheckConstraint("humedad BETWEEN 0 AND 100", name="ck_resultados_humedad"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -116,6 +133,50 @@ class ResultadoConcreto(db.Model):
     aditivo_id: Mapped[int] = mapped_column(
         ForeignKey("aditivos.id", ondelete="CASCADE"), nullable=False
     )
+    tipo_estructura_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tipos_estructura.id", ondelete="SET NULL")
+    )
+    registrado_por: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    origen: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="semilla", server_default="semilla"
+    )
+    fecha_ensayo: Mapped[date | None] = mapped_column(Date)
+    observaciones: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        default=_now, server_default=func.now(), nullable=False
+    )
+
+    aditivo: Mapped["Aditivo"] = relationship()
+    tipo_estructura: Mapped[TipoEstructura | None] = relationship()
+
+
+class Calibracion(db.Model):
+    """Ejecución de la calibración del modelo (historial para la retroalimentación).
+
+    Se guarda una fila cada vez que se recalibra: manualmente o al registrar
+    o importar ensayos. Permite ver cómo cambian los errores del modelo a
+    medida que crece la base de datos experimental.
+    """
+
+    __tablename__ = "calibraciones"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now, nullable=False)
+    ejecutada_por: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    motivo: Mapped[str] = mapped_column(String(16), nullable=False)
+    num_ensayos: Mapped[int] = mapped_column(Integer, nullable=False)
+    num_combinaciones: Mapped[int] = mapped_column(Integer, nullable=False)
+    mae_ajuste: Mapped[float] = mapped_column(Float, nullable=False)
+    rmse_ajuste: Mapped[float] = mapped_column(Float, nullable=False)
+    r2_promedio: Mapped[float | None] = mapped_column(Float)
+    mae_validacion: Mapped[float | None] = mapped_column(Float)
+    rmse_validacion: Mapped[float | None] = mapped_column(Float)
+    mape_validacion: Mapped[float | None] = mapped_column(Float)
+    detalle: Mapped[dict | None] = mapped_column(JSON)
 
 
 class Mixture(db.Model):

@@ -10,7 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiException implements Exception {
   final int statusCode;
   final String message;
-  const ApiException(this.statusCode, this.message);
+
+  /// Cuerpo JSON de la respuesta de error (p. ej. la lista de líneas con
+  /// errores de una importación CSV). Null si no hubo respuesta.
+  final dynamic body;
+  const ApiException(this.statusCode, this.message, [this.body]);
 
   @override
   String toString() => message;
@@ -39,7 +43,9 @@ class ApiClient {
   String get baseUrl {
     if (_envUrl.isNotEmpty) return _envUrl;
     if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:5000';
-    return 'http://localhost:5000';
+    // 127.0.0.1 y no localhost: en Windows localhost intenta primero IPv6
+    // (::1), donde Flask no escucha, y cada petición espera ese intento.
+    return 'http://127.0.0.1:5000';
   }
 
   bool get hasToken => _token != null;
@@ -73,6 +79,20 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
       _send(() => _http.get(_uri(path, query), headers: _headers));
 
+  /// Descarga binaria (p. ej. el reporte PDF de un proyecto).
+  Future<List<int>> getBytes(String path) async {
+    http.Response response;
+    try {
+      response = await _http.get(_uri(path), headers: _headers).timeout(const Duration(seconds: 30));
+    } catch (e) {
+      throw ApiException(0, 'No se pudo conectar con el servidor ($baseUrl).');
+    }
+    if (response.statusCode >= 400) {
+      throw ApiException(response.statusCode, 'Error ${response.statusCode} al descargar');
+    }
+    return response.bodyBytes;
+  }
+
   Future<dynamic> post(String path, {Object? body}) => _send(
         () => _http.post(_uri(path), headers: _headers, body: jsonEncode(body)),
       );
@@ -101,7 +121,7 @@ class ApiClient {
 
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
     if (response.statusCode >= 400) {
-      throw ApiException(response.statusCode, _errorMessage(decoded, response.statusCode));
+      throw ApiException(response.statusCode, _errorMessage(decoded, response.statusCode), decoded);
     }
     return decoded;
   }

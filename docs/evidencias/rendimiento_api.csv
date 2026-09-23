@@ -1,0 +1,10 @@
+endpoint,ruta,n,media_ms,mediana_ms,p95_ms,max_ms,respuesta_kb
+Salud del servicio,/api/health,50,5.9,1.5,19.2,25.5,0.0
+Opciones: temperaturas,/api/experiments/options/temperatures,50,7.7,2.7,21.3,26.6,0.0
+Predicción 7/14/28 d,/api/experiments/predict,50,8.4,3.2,19.6,27.4,0.8
+Rangos óptimos (45 MPa),/api/experiments/optimal-ranges,50,11.9,14.7,24.6,29.4,3.7
+"Dispersión (a/c, 28 d)",/api/experiments/dispersion,50,25.2,29.9,35.1,42.2,72.0
+Calibración + validación LOO,/api/experiments/calibration,50,62.7,62.3,82.9,98.8,22.1
+Historial de calibración,/api/experiments/calibration/history,50,9.6,3.2,25.1,27.4,0.6
+Listado de ensayos (50),/api/experiments/results,50,22.5,28.4,34.6,35.5,18.4
+Listado de proyectos,/api/projects,50,11.2,12.5,25.9,27.6,0.0

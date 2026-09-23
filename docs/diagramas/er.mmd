@@ -1,0 +1,101 @@
+erDiagram
+  users ||--o{ projects : "crea"
+  users |o--o{ resultados_concreto : "registra"
+  users |o--o{ calibraciones : "ejecuta"
+  tipos_estructura ||--o{ projects : "clasifica"
+  tipos_estructura |o--o{ resultados_concreto : "clasifica"
+  tipos_aditivo ||--o{ aditivos : "agrupa"
+  productos ||--o{ aditivos : "comercializa"
+  aditivos ||--o{ resultados_concreto : "se usa en"
+  aditivos |o--o{ projects : "seleccionado en"
+  mixtures |o--o| projects : "mezcla propuesta"
+  mixtures ||--o{ mixture_materials : "contiene"
+  materials ||--o{ mixture_materials : "compone"
+
+  users {
+    int id PK
+    varchar email UK
+    varchar password_hash
+    timestamp created_at
+  }
+  tipos_estructura {
+    int id PK
+    varchar codigo UK
+    varchar nombre
+  }
+  resultados_concreto {
+    int id PK
+    int temperatura
+    int humedad "CHECK 0-100"
+    float relacion_ac
+    int edad_dias "CHECK > 0"
+    float resistencia_mpa "CHECK > 0"
+    int aditivo_id FK
+    int tipo_estructura_id FK "nulo = histórico"
+    int registrado_por FK
+    varchar origen "semilla | registro | importacion"
+    date fecha_ensayo
+    text observaciones
+    timestamp created_at
+  }
+  aditivos {
+    int id PK
+    varchar codigo UK
+    varchar porcentaje_aplicado
+    int tipo_aditivo_id FK
+    int producto_id FK
+  }
+  tipos_aditivo {
+    int id PK
+    varchar nombre UK
+  }
+  productos {
+    int id PK
+    varchar nombre_producto UK
+    varchar marca
+  }
+  projects {
+    int id PK
+    int user_id FK
+    varchar project_name
+    int tipo_estructura_id FK
+    float resistance_target "CHECK 24-57"
+    int temperature
+    int humidity
+    float relacion_ac
+    int aditivo_id FK
+    float resistencia_predicha_28d
+    int mixture_id FK
+  }
+  mixtures {
+    int id PK
+    varchar name
+    float total_volume
+    int project_id FK
+  }
+  mixture_materials {
+    int id PK
+    int mixture_id FK
+    int material_id FK
+    float quantity
+    float percentage
+  }
+  materials {
+    int id PK
+    varchar name UK
+    varchar unit
+    float density
+    float cost_per_unit
+  }
+  calibraciones {
+    int id PK
+    timestamp created_at
+    int ejecutada_por FK
+    varchar motivo
+    int num_ensayos
+    float mae_ajuste
+    float mae_validacion
+    float rmse_validacion
+    float mape_validacion
+    json detalle
+  }

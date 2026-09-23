@@ -65,6 +65,7 @@ class Prediction {
 class AgeStat {
   final int edadDias;
   final double promedio;
+  final double? desviacion;
   final double minimo;
   final double maximo;
   final int numMuestras;
@@ -72,6 +73,7 @@ class AgeStat {
   const AgeStat({
     required this.edadDias,
     required this.promedio,
+    this.desviacion,
     required this.minimo,
     required this.maximo,
     required this.numMuestras,
@@ -80,6 +82,7 @@ class AgeStat {
   factory AgeStat.fromMap(Map<String, dynamic> map) => AgeStat(
         edadDias: map['edad_dias'] as int,
         promedio: (map['promedio'] as num).toDouble(),
+        desviacion: (map['desviacion'] as num?)?.toDouble(),
         minimo: (map['minimo'] as num).toDouble(),
         maximo: (map['maximo'] as num).toDouble(),
         numMuestras: map['num_muestras'] as int,
@@ -106,6 +109,10 @@ class AditivoOption {
         porcentaje: map['porcentaje_aplicado'] as String? ?? '',
       );
 }
+
+/// PostgreSQL guarda `timestamp without time zone` con la hora local del
+/// servidor; si la fecha trae zona horaria se convierte a la hora local.
+DateTime _parseServerDate(String iso) => DateTime.parse(iso).toLocal();
 
 List<double> _doubles(dynamic list) =>
     (list as List? ?? []).map((e) => (e as num).toDouble()).toList();
@@ -357,11 +364,12 @@ class ExperimentService {
     return Prediction.fromMap(data as Map<String, dynamic>);
   }
 
-  Future<OptimalRanges> optimalRanges(double resistenciaObjetivo) async {
-    final data = await _api.get(
-      '/api/experiments/optimal-ranges',
-      query: {'resistencia_objetivo': resistenciaObjetivo},
-    );
+  /// `tipoEstructura`: Puentes | Tuneles | Muros | sin_clasificar (null = todas).
+  Future<OptimalRanges> optimalRanges(double resistenciaObjetivo, {String? tipoEstructura}) async {
+    final data = await _api.get('/api/experiments/optimal-ranges', query: {
+      'resistencia_objetivo': resistenciaObjetivo,
+      if (tipoEstructura != null) 'tipo_estructura': tipoEstructura,
+    });
     return OptimalRanges.fromMap(data as Map<String, dynamic>);
   }
 
@@ -370,12 +378,502 @@ class ExperimentService {
     required String variable,
     int edadDias = 28,
     String? tipoAditivo,
+    String? tipoEstructura,
   }) async {
     final data = await _api.get('/api/experiments/dispersion', query: {
       'variable': variable,
       'edad_dias': edadDias,
       if (tipoAditivo != null) 'tipo_aditivo': tipoAditivo,
+      if (tipoEstructura != null) 'tipo_estructura': tipoEstructura,
     });
     return Dispersion.fromMap(data as Map<String, dynamic>);
   }
+
+  // ── Estadística inferencial y optimización ───────────────────────────
+
+  Future<Anova> anova({int edadDias = 28}) async {
+    final data = await _api.get('/api/experiments/anova', query: {'edad_dias': edadDias});
+    return Anova.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<RegressionModel> regressionModel() async {
+    final data = await _api.get('/api/experiments/model');
+    return RegressionModel.fromMap(data as Map<String, dynamic>);
+  }
+
+  /// Dosificación de menor contenido de cemento que alcanza f'cr en el clima de la obra.
+  Future<Optimization> optimize({
+    required double resistenciaObjetivo,
+    required double temperatura,
+    required double humedad,
+    required String tipoEstructura,
+  }) async {
+    final data = await _api.post('/api/experiments/optimize', body: {
+      'resistencia_objetivo': resistenciaObjetivo,
+      'temperatura': temperatura,
+      'humedad': humedad,
+      'tipo_estructura': tipoEstructura,
+    });
+    return Optimization.fromMap(data as Map<String, dynamic>);
+  }
+
+  // ── Calibración ──────────────────────────────────────────────────────
+
+  Future<Calibration> calibration() async {
+    final data = await _api.get('/api/experiments/calibration');
+    return Calibration.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<List<CalibrationRun>> calibrationHistory() async {
+    final data = await _api.get('/api/experiments/calibration/history');
+    return (data as List)
+        .map((e) => CalibrationRun.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CalibrationRun> runCalibration() async {
+    final data = await _api.post('/api/experiments/calibration/run');
+    return CalibrationRun.fromMap(data as Map<String, dynamic>);
+  }
+
+  // ── Registro de ensayos ──────────────────────────────────────────────
+
+  Future<ResultadoPage> listResults({
+    String? tipoEstructura,
+    String? origen,
+    int page = 1,
+    int perPage = 30,
+  }) async {
+    final data = await _api.get('/api/experiments/results', query: {
+      if (tipoEstructura != null) 'tipo_estructura': tipoEstructura,
+      if (origen != null) 'origen': origen,
+      'page': page,
+      'per_page': perPage,
+    });
+    return ResultadoPage.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<Resultado> registerResult(Map<String, dynamic> ensayo) async {
+    final data = await _api.post('/api/experiments/results', body: ensayo);
+    return Resultado.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteResult(int id) => _api.delete('/api/experiments/results/$id');
+
+  /// Importa ensayos desde texto CSV. Si alguna línea falla lanza
+  /// [ImportException] con las líneas y sus errores (no se guarda nada).
+  Future<int> importCsv(String csv) async {
+    try {
+      final data = await _api.post('/api/experiments/results/import', body: {'csv': csv});
+      return (data as Map<String, dynamic>)['insertados'] as int;
+    } on ApiException catch (e) {
+      final body = e.body;
+      if (e.statusCode == 422 && body is Map && body['errores'] is List) {
+        throw ImportException((body['errores'] as List)
+            .map((x) => ImportError.fromMap(x as Map<String, dynamic>))
+            .toList());
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<AditivoCatalogo>> aditivos() async {
+    final data = await _api.get('/api/catalog/aditivos');
+    return (data as List)
+        .map((e) => AditivoCatalogo.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+}
+
+// ── Modelos de calibración ─────────────────────────────────────────────
+
+/// Error de un modelo (MAE, RMSE, MAPE) sobre `n` cilindros.
+class ErrorMetrics {
+  final int n;
+  final double? mae;
+  final double? rmse;
+  final double? mape;
+
+  const ErrorMetrics({required this.n, this.mae, this.rmse, this.mape});
+
+  factory ErrorMetrics.fromMap(Map<String, dynamic> map) => ErrorMetrics(
+        n: map['n'] as int? ?? 0,
+        mae: (map['mae'] as num?)?.toDouble(),
+        rmse: (map['rmse'] as num?)?.toDouble(),
+        mape: (map['mape'] as num?)?.toDouble(),
+      );
+}
+
+/// Validación cruzada de un modelo: global y por edad del ensayo.
+class ModelValidation {
+  final ErrorMetrics global;
+  final Map<int, ErrorMetrics> porEdad;
+
+  const ModelValidation({required this.global, required this.porEdad});
+
+  factory ModelValidation.fromMap(Map<String, dynamic> map) => ModelValidation(
+        global: ErrorMetrics.fromMap(map),
+        porEdad: {
+          for (final e in (map['por_edad'] as List? ?? []).cast<Map<String, dynamic>>())
+            e['edad_dias'] as int: ErrorMetrics.fromMap(e),
+        },
+      );
+}
+
+/// Resultado de `/api/experiments/calibration`.
+class Calibration {
+  final int numEnsayos;
+  final int combinaciones;
+  final double maeAjuste;
+  final double rmseAjuste;
+  final double? r2Promedio;
+
+  /// Curva f(t) = a + b·ln(t) y modelo base (promedio por edad) evaluados
+  /// dejando un cilindro fuera.
+  final ModelValidation curvaLog;
+  final ModelValidation promedioEdad;
+
+  const Calibration({
+    required this.numEnsayos,
+    required this.combinaciones,
+    required this.maeAjuste,
+    required this.rmseAjuste,
+    this.r2Promedio,
+    required this.curvaLog,
+    required this.promedioEdad,
+  });
+
+  factory Calibration.fromMap(Map<String, dynamic> map) {
+    final val = map['validacion'] as Map<String, dynamic>;
+    return Calibration(
+      numEnsayos: map['num_ensayos'] as int,
+      combinaciones: map['combinaciones'] as int,
+      maeAjuste: (map['mae_global'] as num).toDouble(),
+      rmseAjuste: (map['rmse_global'] as num).toDouble(),
+      r2Promedio: (map['r2_promedio'] as num?)?.toDouble(),
+      curvaLog: ModelValidation.fromMap(val['curva_log'] as Map<String, dynamic>),
+      promedioEdad: ModelValidation.fromMap(val['promedio_edad'] as Map<String, dynamic>),
+    );
+  }
+}
+
+/// Una ejecución guardada en el historial de calibración.
+class CalibrationRun {
+  final int id;
+  final DateTime createdAt;
+  final String motivo;
+  final int numEnsayos;
+  final double maeAjuste;
+  final double? maeValidacion;
+  final double? rmseValidacion;
+  final double? mapeValidacion;
+
+  const CalibrationRun({
+    required this.id,
+    required this.createdAt,
+    required this.motivo,
+    required this.numEnsayos,
+    required this.maeAjuste,
+    this.maeValidacion,
+    this.rmseValidacion,
+    this.mapeValidacion,
+  });
+
+  factory CalibrationRun.fromMap(Map<String, dynamic> map) => CalibrationRun(
+        id: map['id'] as int,
+        createdAt: _parseServerDate(map['created_at'] as String),
+        motivo: map['motivo'] as String,
+        numEnsayos: map['num_ensayos'] as int,
+        maeAjuste: (map['mae_ajuste'] as num).toDouble(),
+        maeValidacion: (map['mae_validacion'] as num?)?.toDouble(),
+        rmseValidacion: (map['rmse_validacion'] as num?)?.toDouble(),
+        mapeValidacion: (map['mape_validacion'] as num?)?.toDouble(),
+      );
+}
+
+// ── Modelos de registro de ensayos ─────────────────────────────────────
+
+/// Ensayo de compresión de un cilindro.
+class Resultado {
+  final int id;
+  final int temperatura;
+  final int humedad;
+  final double relacionAc;
+  final int edadDias;
+  final double resistenciaMpa;
+  final String aditivoCodigo;
+  final String? tipoEstructura;
+  final String origen;
+  final DateTime? fechaEnsayo;
+  final String? observaciones;
+
+  const Resultado({
+    required this.id,
+    required this.temperatura,
+    required this.humedad,
+    required this.relacionAc,
+    required this.edadDias,
+    required this.resistenciaMpa,
+    required this.aditivoCodigo,
+    this.tipoEstructura,
+    required this.origen,
+    this.fechaEnsayo,
+    this.observaciones,
+  });
+
+  factory Resultado.fromMap(Map<String, dynamic> map) => Resultado(
+        id: map['id'] as int,
+        temperatura: map['temperatura'] as int,
+        humedad: map['humedad'] as int,
+        relacionAc: (map['relacion_ac'] as num).toDouble(),
+        edadDias: map['edad_dias'] as int,
+        resistenciaMpa: (map['resistencia_mpa'] as num).toDouble(),
+        aditivoCodigo: map['aditivo_codigo'] as String? ?? '',
+        tipoEstructura: map['tipo_estructura'] as String?,
+        origen: map['origen'] as String? ?? 'semilla',
+        fechaEnsayo: map['fecha_ensayo'] == null
+            ? null
+            : DateTime.parse(map['fecha_ensayo'] as String),
+        observaciones: map['observaciones'] as String?,
+      );
+}
+
+class ResultadoPage {
+  final int total;
+  final int page;
+  final int perPage;
+  final List<Resultado> items;
+
+  const ResultadoPage({
+    required this.total,
+    required this.page,
+    required this.perPage,
+    required this.items,
+  });
+
+  bool get hasMore => page * perPage < total;
+
+  factory ResultadoPage.fromMap(Map<String, dynamic> map) => ResultadoPage(
+        total: map['total'] as int,
+        page: map['page'] as int,
+        perPage: map['per_page'] as int,
+        items: (map['items'] as List)
+            .map((e) => Resultado.fromMap(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class ImportError {
+  final int linea;
+  final String mensaje;
+  const ImportError(this.linea, this.mensaje);
+
+  factory ImportError.fromMap(Map<String, dynamic> map) =>
+      ImportError(map['linea'] as int, map['mensaje'] as String);
+}
+
+class ImportException implements Exception {
+  final List<ImportError> errores;
+  const ImportException(this.errores);
+}
+
+/// Aditivo del catálogo completo (`/api/catalog/aditivos`).
+class AditivoCatalogo {
+  final int id;
+  final String codigo;
+  final String porcentaje;
+  final String tipo;
+  final String producto;
+
+  const AditivoCatalogo({
+    required this.id,
+    required this.codigo,
+    required this.porcentaje,
+    required this.tipo,
+    required this.producto,
+  });
+
+  factory AditivoCatalogo.fromMap(Map<String, dynamic> map) => AditivoCatalogo(
+        id: map['id'] as int,
+        codigo: map['codigo'] as String,
+        porcentaje: map['porcentaje_aplicado'] as String? ?? '',
+        tipo: map['tipo_aditivo'] as String? ?? '',
+        producto: map['producto'] as String? ?? '',
+      );
+}
+
+// ── Modelos de estadística inferencial y optimización ──────────────────
+
+/// Fila de la tabla ANOVA.
+class AnovaRow {
+  final String fuente;
+  final double sc;
+  final int gl;
+  final double? f;
+  final double? p;
+  final double eta2Parcial;
+
+  const AnovaRow({
+    required this.fuente,
+    required this.sc,
+    required this.gl,
+    this.f,
+    this.p,
+    required this.eta2Parcial,
+  });
+
+  factory AnovaRow.fromMap(Map<String, dynamic> map) => AnovaRow(
+        fuente: map['fuente'] as String,
+        sc: (map['sc'] as num).toDouble(),
+        gl: map['gl'] as int,
+        f: (map['f'] as num?)?.toDouble(),
+        p: (map['p'] as num?)?.toDouble(),
+        eta2Parcial: (map['eta2_parcial'] as num).toDouble(),
+      );
+
+  bool get significativo => (p ?? 1) < 0.05;
+}
+
+/// Resultado de `/api/experiments/anova`.
+class Anova {
+  final int edadDias;
+  final int n;
+  final double r2;
+  final List<AnovaRow> filas;
+  final int glResidual;
+  final double cmResidual;
+
+  const Anova({
+    required this.edadDias,
+    required this.n,
+    required this.r2,
+    required this.filas,
+    required this.glResidual,
+    required this.cmResidual,
+  });
+
+  factory Anova.fromMap(Map<String, dynamic> map) {
+    final residual = map['residual'] as Map<String, dynamic>;
+    return Anova(
+      edadDias: map['edad_dias'] as int,
+      n: map['n'] as int,
+      r2: (map['r2'] as num).toDouble(),
+      filas: (map['filas'] as List).map((e) => AnovaRow.fromMap(e as Map<String, dynamic>)).toList(),
+      glResidual: residual['gl'] as int,
+      cmResidual: (residual['cm'] as num).toDouble(),
+    );
+  }
+}
+
+/// Resultado de `/api/experiments/model` (regresión múltiple).
+class RegressionModel {
+  final String ecuacion;
+  final double r2;
+  final double r2Ajustado;
+  final double rmse;
+  final ErrorMetrics validacion;
+
+  const RegressionModel({
+    required this.ecuacion,
+    required this.r2,
+    required this.r2Ajustado,
+    required this.rmse,
+    required this.validacion,
+  });
+
+  factory RegressionModel.fromMap(Map<String, dynamic> map) => RegressionModel(
+        ecuacion: map['ecuacion'] as String,
+        r2: (map['r2'] as num).toDouble(),
+        r2Ajustado: (map['r2_ajustado'] as num).toDouble(),
+        rmse: (map['rmse'] as num).toDouble(),
+        validacion: ErrorMetrics.fromMap(map['validacion'] as Map<String, dynamic>),
+      );
+}
+
+class MixComponent {
+  final String nombre;
+  final String unidad;
+  final double cantidad;
+  const MixComponent(this.nombre, this.unidad, this.cantidad);
+
+  factory MixComponent.fromMap(Map<String, dynamic> map) => MixComponent(
+        map['nombre'] as String,
+        map['unidad'] as String,
+        (map['cantidad'] as num).toDouble(),
+      );
+}
+
+/// Una alternativa de dosificación (un aditivo con su a/c óptima).
+class OptimizationAlternative {
+  final String aditivoCodigo;
+  final String tipoAditivo;
+  final double dosisPct;
+  final double relacionAc;
+  final double prediccion;
+  final double margen;
+  final bool factible;
+  final double cemento;
+  final double? costoReferencia;
+  final List<MixComponent> materiales;
+  final String descripcion;
+
+  const OptimizationAlternative({
+    required this.aditivoCodigo,
+    required this.tipoAditivo,
+    required this.dosisPct,
+    required this.relacionAc,
+    required this.prediccion,
+    required this.margen,
+    required this.factible,
+    required this.cemento,
+    this.costoReferencia,
+    required this.materiales,
+    required this.descripcion,
+  });
+
+  factory OptimizationAlternative.fromMap(Map<String, dynamic> map) => OptimizationAlternative(
+        aditivoCodigo: map['aditivo_codigo'] as String,
+        tipoAditivo: map['tipo_aditivo'] as String,
+        dosisPct: (map['dosis_pct'] as num).toDouble(),
+        relacionAc: (map['relacion_ac'] as num).toDouble(),
+        prediccion: (map['prediccion'] as num).toDouble(),
+        margen: (map['margen'] as num).toDouble(),
+        factible: map['factible'] as bool,
+        cemento: (map['cemento'] as num).toDouble(),
+        costoReferencia: (map['costo_referencia'] as num?)?.toDouble(),
+        materiales: (map['materiales'] as List)
+            .map((e) => MixComponent.fromMap(e as Map<String, dynamic>))
+            .toList(),
+        descripcion: map['descripcion'] as String? ?? '',
+      );
+}
+
+/// Resultado de `/api/experiments/optimize`.
+class Optimization {
+  final double resistenciaEspecificada;
+  final double resistenciaRequerida;
+  final double desviacionEstandar;
+  final List<String> advertencias;
+  final List<OptimizationAlternative> alternativas;
+
+  const Optimization({
+    required this.resistenciaEspecificada,
+    required this.resistenciaRequerida,
+    required this.desviacionEstandar,
+    required this.advertencias,
+    required this.alternativas,
+  });
+
+  OptimizationAlternative? get mejor =>
+      alternativas.isNotEmpty && alternativas.first.factible ? alternativas.first : null;
+
+  factory Optimization.fromMap(Map<String, dynamic> map) => Optimization(
+        resistenciaEspecificada: (map['resistencia_especificada'] as num).toDouble(),
+        resistenciaRequerida: (map['resistencia_requerida'] as num).toDouble(),
+        desviacionEstandar: (map['desviacion_estandar'] as num).toDouble(),
+        advertencias: (map['advertencias'] as List).cast<String>(),
+        alternativas: (map['alternativas'] as List)
+            .map((e) => OptimizationAlternative.fromMap(e as Map<String, dynamic>))
+            .toList(),
+      );
 }

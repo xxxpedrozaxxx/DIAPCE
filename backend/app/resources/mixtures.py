@@ -29,8 +29,8 @@ class MixturePreview(MethodView):
     @blp.arguments(MixturePreviewQuerySchema, location="query")
     @blp.response(200, MixtureSchema)
     def get(self, q):
-        """Composición que se asignaría a un proyecto (sin guardar)."""
-        return preview_example_mixture(q["work_type"], q["resistance_target"])
+        """Dosificación ACI 211.1 que se asignaría a un proyecto (sin guardar)."""
+        return preview_example_mixture(q["work_type"], q["relacion_ac"], q.get("aditivo_id"))
 
 
 @blp.route("/<int:mixture_id>")
