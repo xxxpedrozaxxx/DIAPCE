@@ -15,6 +15,16 @@ el esquema y carga los datos de semilla (CSV incluido) automáticamente.
 
 ## Opción B — Local (PostgreSQL ya instalado)
 
+En Windows, un solo script crea el rol y la base `diapce`, escribe `.env` y
+carga los datos de semilla (pide la contraseña del usuario `postgres`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend\setup_postgres.ps1
+cd backend; .venv\Scripts\python run.py
+```
+
+Pasos manuales equivalentes:
+
 ```bash
 # 1. Crear usuario y base de datos (una vez, como superusuario postgres)
 psql -U postgres -c "CREATE USER diapce WITH PASSWORD 'diapce';"
@@ -52,7 +62,8 @@ python run.py                   # http://localhost:5000/api/docs
 | GET | `/api/experiments/options/relacion-ac?temperatura=&humedad=` | Relaciones a/c |
 | GET | `/api/experiments/options/aditivos?temperatura=&humedad=&relacion_ac=` | Aditivos |
 | GET | `/api/experiments/predict?temperatura=&humedad=&relacion_ac=&aditivo_id=` | Predicción 7/14/28 d + curva |
-| GET | `/api/experiments/optimal-ranges?resistencia_objetivo=` | Rangos óptimos |
+| GET | `/api/experiments/optimal-ranges?resistencia_objetivo=` | Rangos óptimos (incluye tipo y cantidad de aditivo) |
+| GET | `/api/experiments/dispersion?variable=&edad_dias=&tipo_aditivo=` | Ensayos individuales + tabla de dispersión |
 | GET | `/api/experiments/calibration` | MAE/RMSE/R² del modelo |
 | GET | `/api/catalog/materials` · `/aditivos` · `/tipos-estructura` | Catálogos |
 | GET | `/api/health` | Estado |
@@ -65,6 +76,11 @@ Todas las rutas salvo `auth/*` y `health` requieren `Authorization: Bearer <toke
   para la combinación exacta (temperatura, humedad, a/c, aditivo), más ajuste
   por mínimos cuadrados de `f(t) = a + b·ln(t)` para estimar cualquier edad.
 - **Rangos óptimos**: combinaciones cuyo promedio a 28 días ≥ objetivo;
-  devuelve min/max/valores por variable y las 10 mejores combinaciones.
+  devuelve min/max/valores de temperatura, humedad y a/c, la cantidad de
+  aditivo (%) por tipo de aditivo y las 10 mejores combinaciones.
+- **Dispersión**: ensayos individuales de resistencia contra una variable
+  (temperatura, humedad, a/c o cantidad de aditivo) y, por cada valor, n,
+  promedio, desviación estándar, coeficiente de variación, mínimo, máximo y
+  rango; más la correlación de Pearson.
 - **Calibración**: MAE, RMSE y R² del modelo contra cada ensayo real, por
   combinación y global.

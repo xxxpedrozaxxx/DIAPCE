@@ -4,7 +4,15 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
+        {
+            // Emulador Android (AVD flutter_pixel). La app llama al backend en 10.0.2.2:5000.
+            // Antes de lanzar: tarea "Backend: iniciar API Flask" y "Emulador: iniciar flutter_pixel".
+            "name": "diapce_aplicationn (emulador Android)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "deviceId": "emulator-5554"
+        },
         {
             "name": "diapce_aplicationn",
             "request": "launch",

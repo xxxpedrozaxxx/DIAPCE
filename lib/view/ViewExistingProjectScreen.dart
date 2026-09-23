@@ -10,8 +10,10 @@ import 'package:diapce_aplicationn/core/theme/app_colors.dart';
 import 'package:diapce_aplicationn/core/theme/app_spacing.dart';
 import 'package:diapce_aplicationn/models/mixture.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
+import 'package:diapce_aplicationn/services/experiment_service.dart';
 import 'package:diapce_aplicationn/services/mixture_service.dart';
 import 'package:diapce_aplicationn/services/project_service.dart';
+import 'package:diapce_aplicationn/view/analysis_screen.dart';
 import 'package:diapce_aplicationn/view/hall.dart' show projectHeroTag;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -34,9 +36,12 @@ class ViewExistingProjectScreen extends StatefulWidget {
 class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
   final MixtureService _mixtureService = MixtureService();
   final ProjectService _projectService = ProjectService();
+  final ExperimentService _experimentService = ExperimentService();
   List<MaterialInMixture> _materials = [];
   bool _isLoading = true;
   bool _saving = false;
+  Prediction? _prediction;
+  bool _loadingPrediction = true;
   late ProjectData _currentProject; // Track the current project state
 
   @override
@@ -44,6 +49,7 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
     super.initState();
     _currentProject = widget.project; // Initialize with the widget project
     _loadMixtureData();
+    _loadPrediction();
   }
 
   Future<void> _loadMixtureData() async {
@@ -117,50 +123,54 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
     }).toList();
   }
 
-  // Crear datos para la gráfica de resistencia vs tiempo (28 días)
+  // Curva de desarrollo de resistencia f(t) = a + b·ln(t) ajustada en el
+  // servidor con los ensayos de las condiciones del proyecto (día 3 a 28).
   List<FlSpot> _createResistanceData() {
-    // Obtener el valor de resistencia del proyecto
-    final targetResistance = widget.project.resistanceTarget.toDouble();
+    final prediction = _prediction;
+    if (prediction == null) return [];
+    return [
+      for (int day = 3; day <= 28; day++)
+        if (prediction.at(day.toDouble()) case final value?)
+          FlSpot(day.toDouble(), value),
+    ];
+  }
 
-    // Datos típicos de desarrollo de resistencia del concreto
-    // Porcentajes aproximados de la resistencia final a diferentes días
-    final resistancePercentages = {
-      1: 0.15, // 15% al día 1
-      3: 0.35, // 35% al día 3
-      7: 0.65, // 65% a los 7 días
-      14: 0.85, // 85% a los 14 días
-      21: 0.92, // 92% a los 21 días
-      28: 1.0, // 100% a los 28 días (resistencia de diseño)
-    };
+  // Promedio real de los ensayos a 7, 14 y 28 días.
+  List<FlSpot> _createMeasuredData() => [
+        for (final stat in _prediction?.porEdad ?? const <AgeStat>[])
+          FlSpot(stat.edadDias.toDouble(), stat.promedio),
+      ];
 
-    List<FlSpot> spots = [];
-
-    // Crear puntos para cada día del 1 al 28
-    for (int day = 1; day <= 28; day++) {
-      double resistanceRatio;
-
-      if (resistancePercentages.containsKey(day)) {
-        resistanceRatio = resistancePercentages[day]!;
-      } else {
-        // Interpolación para días intermedios
-        if (day < 3) {
-          resistanceRatio = 0.15 + (0.35 - 0.15) * (day - 1) / (3 - 1);
-        } else if (day < 7) {
-          resistanceRatio = 0.35 + (0.65 - 0.35) * (day - 3) / (7 - 3);
-        } else if (day < 14) {
-          resistanceRatio = 0.65 + (0.85 - 0.65) * (day - 7) / (14 - 7);
-        } else if (day < 21) {
-          resistanceRatio = 0.85 + (0.92 - 0.85) * (day - 14) / (21 - 14);
-        } else {
-          resistanceRatio = 0.92 + (1.0 - 0.92) * (day - 21) / (28 - 21);
-        }
-      }
-
-      final resistance = targetResistance * resistanceRatio;
-      spots.add(FlSpot(day.toDouble(), resistance));
+  Future<void> _loadPrediction() async {
+    final project = widget.project;
+    try {
+      final prediction = await _experimentService.predict(
+        temperatura: project.temperature,
+        humedad: project.humidity,
+        relacionAc: project.relacionAc,
+        aditivoId: project.aditivoId ?? 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _prediction = prediction;
+        _loadingPrediction = false;
+      });
+    } on ApiException {
+      if (!mounted) return;
+      setState(() => _loadingPrediction = false);
     }
+  }
 
-    return spots;
+  void _openOptimalRanges() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AnalysisScreen(
+          initialTarget: widget.project.resistanceTarget.toDouble(),
+          initialTab: 1,
+        ),
+      ),
+    );
   }
 
   @override
@@ -384,7 +394,29 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                     subtitle: 'MPa vs. tiempo · 28 días',
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  SizedBox(height: 240, child: _buildLineChart(scheme, text)),
+                  SizedBox(
+                    height: 240,
+                    child: _loadingPrediction
+                        ? const Center(child: CircularProgressIndicator())
+                        : _prediction?.a == null
+                            ? Center(
+                                child: Text(
+                                  'Sin ensayos suficientes para ajustar la curva.',
+                                  style: text.bodySmall,
+                                ),
+                              )
+                            : _buildLineChart(scheme, text),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      _ChartLegend(color: scheme.primary, label: 'Curva ajustada'),
+                      _ChartLegend(color: AppColors.accent, label: 'Promedio de ensayos'),
+                      _ChartLegend(color: scheme.error, label: 'Objetivo', line: true),
+                    ],
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
@@ -399,12 +431,22 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
-                            'Curva típica de hidratación: 65 % a 7 días, 85 % a 14 días y 100 % (${project.resistanceTarget} MPa) a los 28 días.',
+                            _prediction?.formula == null
+                                ? 'La curva se ajusta con los ensayos de laboratorio de estas condiciones.'
+                                : 'Modelo ${_prediction!.formula} · R² ${_prediction!.r2?.toStringAsFixed(3) ?? '—'} · '
+                                    '${_prediction!.numMuestras} ensayos (T ${project.temperature} °C, '
+                                    'HR ${project.humidity} %, a/c ${project.relacionAc}).',
                             style: text.bodySmall,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton.outline(
+                    label: 'Rangos óptimos para ${project.resistanceTarget} MPa',
+                    icon: Icons.tune_rounded,
+                    onPressed: _openOptimalRanges,
                   ),
                 ],
               ),
@@ -546,7 +588,17 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
         minX: 0,
         maxX: 28,
         minY: 0,
-        maxY: widget.project.resistanceTarget.toDouble() * 1.1,
+        maxY: _chartMaxY(),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: widget.project.resistanceTarget.toDouble(),
+              color: scheme.error.withValues(alpha: 0.7),
+              strokeWidth: 1.5,
+              dashArray: [6, 4],
+            ),
+          ],
+        ),
         lineBarsData: [
           LineChartBarData(
             spots: _createResistanceData(),
@@ -554,18 +606,7 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
             color: scheme.primary,
             barWidth: 3,
             isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              checkToShowDot: (spot, _) => [7, 14, 28].contains(spot.x.toInt()),
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 5,
-                  color: scheme.primary,
-                  strokeWidth: 3,
-                  strokeColor: scheme.surface,
-                );
-              },
-            ),
+            dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
               gradient: LinearGradient(
@@ -578,10 +619,62 @@ class _ViewExistingProjectScreenState extends State<ViewExistingProjectScreen> {
               ),
             ),
           ),
+          // Promedios medidos en laboratorio (solo puntos).
+          LineChartBarData(
+            spots: _createMeasuredData(),
+            color: Colors.transparent,
+            barWidth: 0,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                radius: 5,
+                color: AppColors.accent,
+                strokeWidth: 2.5,
+                strokeColor: scheme.surface,
+              ),
+            ),
+          ),
         ],
       ),
       duration: AppMotion.slow,
       curve: AppMotion.emphasized,
+    );
+  }
+
+  double _chartMaxY() {
+    final values = [
+      widget.project.resistanceTarget.toDouble(),
+      ..._createResistanceData().map((s) => s.y),
+      ..._createMeasuredData().map((s) => s.y),
+    ];
+    final max = values.reduce((a, b) => a > b ? a : b);
+    return (max * 1.15 / 10).ceil() * 10;
+  }
+}
+
+class _ChartLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  final bool line;
+
+  const _ChartLegend({required this.color, required this.label, this.line = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: line ? 16 : 10,
+          height: line ? 2 : 10,
+          decoration: BoxDecoration(
+            color: color,
+            shape: line ? BoxShape.rectangle : BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs + 2),
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+      ],
     );
   }
 }

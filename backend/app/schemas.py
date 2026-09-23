@@ -183,12 +183,21 @@ class RangeSchema(Schema):
     valores = fields.List(fields.Float())
 
 
+class AditivoRangeSchema(RangeSchema):
+    """Cantidad de aditivo (%) que alcanza el objetivo, para un tipo de aditivo."""
+
+    tipo_aditivo = fields.Str()
+    combinaciones = fields.Int()
+
+
 class CombinationSchema(Schema):
     temperatura = fields.Int()
     humedad = fields.Int()
     relacion_ac = fields.Float()
     aditivo_id = fields.Int()
     aditivo_codigo = fields.Str()
+    tipo_aditivo = fields.Str()
+    porcentaje_aditivo = fields.Float()
     promedio_28d = fields.Float()
     num_muestras = fields.Int()
 
@@ -198,7 +207,46 @@ class OptimalRangesSchema(Schema):
     total_combinaciones = fields.Int()
     combinaciones_que_cumplen = fields.Int()
     rangos = fields.Dict(keys=fields.Str(), values=fields.Nested(RangeSchema))
+    aditivos = fields.List(fields.Nested(AditivoRangeSchema))
     mejores = fields.List(fields.Nested(CombinationSchema))
+
+
+class DispersionQuerySchema(Schema):
+    variable = fields.Str(
+        required=True,
+        validate=validate.OneOf(["temperatura", "humedad", "relacion_ac", "porcentaje_aditivo"]),
+    )
+    edad_dias = fields.Int(load_default=28, validate=validate.OneOf([7, 14, 28]))
+    tipo_aditivo = fields.Str(load_default=None, allow_none=True)
+
+
+class DispersionPointSchema(Schema):
+    x = fields.Float()
+    y = fields.Float()
+    tipo_aditivo = fields.Str()
+    aditivo_codigo = fields.Str()
+
+
+class DispersionRowSchema(Schema):
+    valor = fields.Float()
+    num_muestras = fields.Int()
+    promedio = fields.Float()
+    desviacion = fields.Float(allow_none=True)
+    coef_variacion = fields.Float(allow_none=True)
+    minimo = fields.Float()
+    maximo = fields.Float()
+    rango = fields.Float()
+
+
+class DispersionSchema(Schema):
+    variable = fields.Str()
+    edad_dias = fields.Int()
+    tipo_aditivo = fields.Str(allow_none=True)
+    num_puntos = fields.Int()
+    correlacion = fields.Float(allow_none=True)
+    tipos_aditivo = fields.List(fields.Str())
+    puntos = fields.List(fields.Nested(DispersionPointSchema))
+    tabla = fields.List(fields.Nested(DispersionRowSchema))
 
 
 class CalibrationRowSchema(Schema):

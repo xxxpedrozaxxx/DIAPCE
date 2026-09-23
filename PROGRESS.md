@@ -29,6 +29,12 @@ Migración: monolítico Flutter + SQLite → cliente-servidor Flutter + Flask + 
 - `backend/schema.sql` exportado con `pg_dump --schema-only` (10 tablas) para el documento de tesis.
 - `docs/base_de_datos.md` actualizado a v5 (PostgreSQL, tipos_estructura, password_hash, migraciones).
 
+## Completado (objetivo 3 — visualización, 2026-09-23)
+- Backend: `GET /api/experiments/dispersion?variable=&edad_dias=&tipo_aditivo=` (ensayos individuales + tabla de dispersión: n, promedio, desviación, CV, min, max, rango; correlación de Pearson). `optimal-ranges` ahora devuelve la cantidad de aditivo (%) por tipo de aditivo (`aditivos`) en vez del rango de `aditivo_id`, y `mejores` incluye tipo y dosis. El control P0 (0 %) se reporta como "Sin aditivo".
+- Cliente: `lib/view/analysis_screen.dart` (pestañas Dispersión y Rangos óptimos; acceso desde el ícono de Hall y el menú lateral). La curva del detalle de proyecto ya no usa porcentajes fijos: dibuja f(t) = a + b·ln(t) del servidor, los promedios reales y la línea de objetivo, y enlaza a los rangos óptimos del proyecto.
+- Android: Gradle 9.3.1 + AGP 9.1.0 y `org.gradle.configuration-cache=false` (el único JDK instalado es Java 25).
+- Base de datos: `backend/.env` apunta a PostgreSQL; `backend/setup_postgres.ps1` crea rol/BD `diapce`, escribe `.env` y corre `seed.py`. SQLite ya no se usa.
+
 ## En curso
 - Nada. Migración funcional completa.
 

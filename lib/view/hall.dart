@@ -7,6 +7,7 @@ import 'package:diapce_aplicationn/services/auth_service.dart';
 import 'package:diapce_aplicationn/models/project_data.dart';
 import 'package:diapce_aplicationn/services/project_service.dart';
 import 'package:diapce_aplicationn/view/ViewExistingProjectScreen.dart';
+import 'package:diapce_aplicationn/view/analysis_screen.dart';
 import 'package:diapce_aplicationn/view/create_proyect_screen.dart';
 import 'package:diapce_aplicationn/view/main_login.dart';
 import 'package:flutter/material.dart';
@@ -88,6 +89,13 @@ class _HallState extends State<Hall> {
   String _formatDateForCard(DateTime? date) {
     if (date == null) return 'Sin fecha';
     return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  void _openAnalysis() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AnalysisScreen()),
+    );
   }
 
   void _handleLinkAction() {
@@ -176,13 +184,25 @@ class _HallState extends State<Hall> {
     final email = (widget.user['email'] ?? '') as String;
 
     return Scaffold(
-      drawer: _AppDrawer(email: email, onLogout: _logout),
+      drawer: _AppDrawer(
+        email: email,
+        onLogout: _logout,
+        onAnalysis: () {
+          Navigator.pop(context);
+          _openAnalysis();
+        },
+      ),
       appBar: AppBar(
         title: Text(
           'DIAPCE',
           style: text.titleMedium?.copyWith(letterSpacing: 3),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.insights_rounded),
+            tooltip: 'Análisis de laboratorio',
+            onPressed: _openAnalysis,
+          ),
           IconButton(
             icon: const Icon(Icons.link_rounded),
             tooltip: 'Vincular',
@@ -476,8 +496,13 @@ class _Badge extends StatelessWidget {
 class _AppDrawer extends StatelessWidget {
   final String email;
   final VoidCallback onLogout;
+  final VoidCallback onAnalysis;
 
-  const _AppDrawer({required this.email, required this.onLogout});
+  const _AppDrawer({
+    required this.email,
+    required this.onLogout,
+    required this.onAnalysis,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -516,6 +541,14 @@ class _AppDrawer extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               const Divider(),
               const SizedBox(height: AppSpacing.md),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                ),
+                leading: Icon(Icons.insights_rounded, color: scheme.primary),
+                title: Text('Análisis de laboratorio', style: text.titleMedium),
+                onTap: onAnalysis,
+              ),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,

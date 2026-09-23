@@ -3,6 +3,7 @@
 - options/*      → selectores en cascada (lo que hoy consulta create_proyect_screen.dart)
 - predict        → estadística por edad + curva f(t) = a + b·ln(t)
 - optimal-ranges → rangos de variables que alcanzan una resistencia objetivo
+- dispersion     → ensayos individuales vs. una variable + tabla de dispersión
 - calibration    → error del modelo contra los ensayos reales
 """
 from flask.views import MethodView
@@ -10,7 +11,7 @@ from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 from sqlalchemy import select
 
-from ..analysis import calibration, optimal_ranges, predict_strength
+from ..analysis import calibration, dispersion, optimal_ranges, predict_strength
 from ..extensions import db
 from ..models import Aditivo, ResultadoConcreto
 from ..schemas import (
@@ -18,6 +19,8 @@ from ..schemas import (
     AditivoSchema,
     CalibrationSchema,
     ConditionsQuerySchema,
+    DispersionQuerySchema,
+    DispersionSchema,
     HumidityQuerySchema,
     OptimalRangesQuerySchema,
     OptimalRangesSchema,
@@ -106,6 +109,16 @@ class OptimalRanges(MethodView):
     def get(self, q):
         """Rangos de temperatura/humedad/a/c/aditivo que alcanzan el objetivo a 28 d."""
         return optimal_ranges(q["resistencia_objetivo"])
+
+
+@blp.route("/dispersion")
+class Dispersion(MethodView):
+    @jwt_required()
+    @blp.arguments(DispersionQuerySchema, location="query")
+    @blp.response(200, DispersionSchema)
+    def get(self, q):
+        """Ensayos individuales de resistencia vs. una variable y tabla de dispersión."""
+        return dispersion(q["variable"], q["edad_dias"], q.get("tipo_aditivo"))
 
 
 @blp.route("/calibration")
